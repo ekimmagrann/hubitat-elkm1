@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.9"  }
+public static String version()      {  return "v0.1.13"  }
 public static boolean isDebug() { return true }
 
 import groovy.transform.Field
@@ -30,10 +30,9 @@ import java.util.regex.Matcher
 import java.util.regex.Pattern;
     
 metadata {
-	definition (name: "Elk M1 Driver - Beta", namespace: "belk", author: "Mike Magrann") {
+	definition (name: "Elk M1 Driver", namespace: "belk", author: "Mike Magrann") {
 		capability "Initialize"
 		capability "Telnet"
-//		capability "Thermostat"
 //		capability "SecurityKeypad"
         command "Disarm"
 		command "ArmAway"
@@ -43,13 +42,16 @@ metadata {
         command "ArmNightInstant"
         command "ArmVacation"
         command "RequestArmStatus"
-        command "TaskActivation", ["string"]
+        command "ControlOutputOn", ["number","time"]
+        command "ControlOutputOff", ["number"]
+        command "ControlOutputToggle", ["number"]
+		command "TaskActivation", ["number"]
         command "RequestThermostatData"
         command "RequestTextDescriptions"
 		command "RequestZoneDefinitions"
 		command "ZoneStatusRequest"
+		
         attribute	"Status", "string"
-//        attribute	"Temperature", "string"
 	}
 
 	preferences {
@@ -118,9 +120,9 @@ def ArmNight(){
     def cmd = elkCommands["ArmNight"]
     prepMsg(cmd)
 }
-def ArmNightInstance(){
- 	ifDebug("armNightInstance()")
-    def cmd = elkCommands["ArmNightInstance"]
+def ArmNightInstant(){
+ 	ifDebug("armNightInstant()")
+    def cmd = elkCommands["ArmNightInstant"]
     prepMsg(cmd)
 }
 def ArmVacation(){
@@ -128,7 +130,6 @@ def ArmVacation(){
     def cmd = elkCommands["ArmVacation"]
     prepMsg(cmd)
 }
-//Check this one
 def RequestArmStatus(){
  	ifDebug("requestArmStatus()")
     def cmd = elkCommands["RequestArmStatus"]
@@ -139,32 +140,60 @@ def RequestTemperatureData(){
     def cmd = elkCommands["RequestTemperatureData"]
 	prepMsg2(cmd)
 }
-//This code does not work as intended
+
+//This for loop now works properly
 def RequestTextDescriptions(){
- 	def zoneNumber;
-  for (i = 1; i <= 2; i++) {
-	  	ifDebug("request Text Descriptions(Zone -" + i +")")
-    def cmd = elkCommands["RequestTextDescriptions"]
+ 	ifDebug("request Text Descriptions()")
+	def cmd = elkCommands["RequestTextDescriptions"]
 	def type = "00";
-	zoneNumber = (i.toString());
-    zoneNumber = (zoneNumber.padLeft(3,'0'));
-	cmd = cmd + type + zoneNumber;
 	def future = "00";
-	def msg = cmd + future;
+	  for (i = 1; i <= 208; i++) {
+
+	number = (i.toString());
+		  		number = (number.padLeft(3,'0'));		  
+	def msg = cmd + type + number + future;
 	def len  = (msg.length()+2);
 	String msgStr = Integer.toHexString(len);
 	msgStr = (msgStr.toUpperCase());
-    	msgStr = (msgStr.padLeft(2,'0')); 
+    msgStr = (msgStr.padLeft(2,'0')); 
 	msg = msgStr + msg
 	def cc = generateChksum(msg);
-	msg = msg + cc + "\r\n"
-	  	sendMsg(msg)
-  } 
+		msg = msg + cc
+sendHubCommand(new hubitat.device.HubAction(msg, hubitat.device.Protocol.TELNET))
+	pauseExecution(50)
+	  }
+}
+
+def ControlOutputOn(output, time){
+ 	ifDebug("controlOutputOn()")
+    def cmd = elkCommands["ControlOutputOn"]
+	output = output.toString();
+	time = time.toString();
+    output = (output.padLeft(3,'0'));
+	time = (time.padLeft(5,'0'));
+	cmd = cmd + output + time;
+    prepMsg2(cmd)
+}
+def ControlOutputOff(output){
+ 	ifDebug("controlOutputOff()" + output)
+    def cmd = elkCommands["ControlOutputOff"]
+	output = output.toString();
+    output = (output.padLeft(3,'0'));
+	cmd = cmd + output;
+    prepMsg2(cmd)
+}
+def ControlOutputToggle(output){
+ 	ifDebug("controlOutputToggle()")
+    def cmd = elkCommands["ControlOutputToggle"]
+	output = output.toString();
+    output = (output.padLeft(3,'0'));
+	cmd = cmd + output;
+    prepMsg2(cmd)
 }
 def TaskActivation(task){
  	ifDebug("taskActivation()")
     def cmd = elkCommands["TaskActivation"]
-	task = task;
+	task = task.toString();
     task = (task.padLeft(3,'0'));
 	cmd = cmd + task;
     prepMsg2(cmd)
@@ -174,16 +203,6 @@ def RequestThermostatData(){
     def cmd = elkCommands["RequestThermostatData"]
 	def thermostat = "01";
 	cmd = cmd + thermostat;
-    prepMsg2(cmd)
-}
-//NEW CODE
-def SetThermostatData(thermostat, value, element){
- 	ifDebug("setThermostatData()")
-    def cmd = elkCommands["SetThermostatData"]
-    thermostat = thermostat;
-    value = value;
-    element = element;
-	cmd = cmd + thermostat + value + element;
     prepMsg2(cmd)
 }
 def RequestZoneDefinitions(){
@@ -198,10 +217,12 @@ def ZoneStatusRequest(){
 }
 //Elk M1 Command Line Request - End of
 
+
 //Elk M1 Message Send Lines - Start of
 def prepMsg(cmd) {
 	def area = "1";
-	def code = code;
+    def code = (code.padLeft(6,'0'));
+//	def code = code;
 	cmd = cmd + area + code;
 	prepMsg2(cmd)
 }
@@ -218,6 +239,7 @@ def prepMsg2(cmd) {
 	msg = msg + cc
 	sendMsg(msg)
 }
+
 private generateChksum(String msg){
 		def msgArray = msg.toCharArray()
         def msgSum = 0
@@ -233,17 +255,15 @@ def sendMsg(msg) {
     s = msg
     ifDebug("sendMsg $s")
 	return new hubitat.device.HubAction(s, hubitat.device.Protocol.TELNET)
-//	  		pauseExecution(6000)
 }
+
 //Elk M1 Message Send Lines - End of
 
 
 //Elk M1 Event Receipt Lines
 private parse(String message) {
     ifDebug("Parsing Incoming message: " + message)
-//    message = preProcessMessage(message)
 		def commandCode = message.substring(2, 4);
-	    ifDebug("CommandCode: " + commandCode)
 
 	switch(commandCode) {            
          case 'AR': 
@@ -374,12 +394,26 @@ private parse(String message) {
     		}
             break; 
          case 'SD': 
-            ifDebug("TextDescription: "); 
 			def type = message.substring(4, 6);
 			type = elkTextDescriptionsTypes[type];
 			def name = message.substring(6, 9)
 			def text = message.substring(9, 25)
-//  msgData.data.text = msgData.dataRaw.substring(5, 21).trim();
+			def zoneType;
+		if (text.matches("(.*)Door(.*)")){
+			zoneType = "Contact"
+		} else 
+		if (text.matches("(.*)Window(.*)")){
+			zoneType = "Contact"
+		} else
+			if (text.matches("(.*)Motion(.*)")){
+			zoneType = "Motion"
+			}
+			else
+			zoneType = "Alert";
+		if(name > '000'){
+			ifDebug("Zones: " + name + text + zoneType);
+		}
+//		createZones()
             break;  
          case 'ST': 
             ifDebug("ReplyRequestedTemp: ");
@@ -392,9 +426,7 @@ private parse(String message) {
             ifDebug("TaskChange: "); 
 		def task = message.substring(4, 7)
             break; 
-//NEW CODE
          case 'TR': 
-            ifDebug("ReplyThermostatData: ");
 	  				zoneTemp(message)
 		break; 
          case 'XK': 
@@ -455,7 +487,6 @@ private parse(String message) {
 			def zoneString = message.substring(4, 212);
 			def zoneDefinitions;
   for (i = 1; i <= 208; i++) {
-//    message['zone' + i] = elkZoneDefinitions[message.substring(i - 1, i)];
 		zoneDefinitions = elkZoneDefinitions[zoneString.substring(i - 1, i)];
 						ifDebug("ZoneDefinitions: " + "Zone " + i + " - " + zoneDefinitions);
   }
@@ -519,7 +550,7 @@ def zoneClosed(message){
     }
 }
 
-//NEW CODE Zone Status (Currently working on this)
+//Zone Status (Currently working on this)
 def zoneTemp(message){
     def zoneDevice
 			def tNumber = message.substring(4, 6);
@@ -547,7 +578,6 @@ def zoneTemp(message){
             zoneDevice.sendEvent(name: "coolingSetpoint", value: (cSet))
             zoneDevice.sendEvent(name: "heatingSetpoint", value: (hSet))
             zoneDevice.sendEvent(name: "thermostatSetpoint", value: (00))
-
          }
 }
 
@@ -563,7 +593,7 @@ def createZone(zoneInfo){
 	}
 	else if (zoneInfo.zoneType == "2")
     {
-    	addChildDevice("hubitat", "Virtual Thermostat", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: true, label: zoneInfo.zoneName])
+    	addChildDevice("belk", "Elk M1 ChildDriver Thermostat - Beta", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: true, label: zoneInfo.zoneName])
     } else {
      	addChildDevice("hubitat", "Virtual Motion Sensor", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: true, label: zoneInfo.zoneName])   
         newDevice = getChildDevice(zoneInfo.deviceNetworkId)
@@ -581,8 +611,8 @@ def disarming(){
 	if (state.armState != "disarmed"){
 		ifDebug("disarming")
 		state.armState = "disarmed"
-//		parent.unlockIt()
-//		parent.speakDisarmed()
+		parent.unlockIt()
+		parent.speakDisarmed()
 		if (location.hsmStatus != "disarmed")
 		{
 			sendLocationEvent(name: "hsmSetArm", value: "disarm")
@@ -593,15 +623,14 @@ def systemArmed(){
 	if (state.armState != "armed"){
 		ifDebug("armed")
 		state.armState = "armed"
-//		parent.lockIt()
-//		parent.speakArmed()
+		parent.lockIt()
+		parent.speakArmed()
 		if (location.hsmStatus == "disarmed")
 		{
 			sendLocationEvent(name: "hsmSetArm", value: "armHome")
 		}
 	}
 }
-
 
 //Telnet
 def getReTry(Boolean inc){
@@ -957,10 +986,13 @@ private ifDebug(msg)
 @Field static final String FanAuto = "Fan Auto"
 @Field static final String Fanturnedon = "Fan turned on"
 
-@Field final Map 	elkThermostatMode = ['0': Off,'1': Heat,'2': Cool,'3': Auto, '4': EmergencyHeat]
+
+@Field final Map 	elkThermostatMode = ['0': Off, '1': Heat, '2': Cool, '3': Auto, '4': EmergencyHeat]
 @Field final Map 	elkThermostatHold = ['0': False, '1': True]
 @Field final Map 	elkThermostatFan = ['0': FanAuto, '1': Fanturnedon]
 
+@Field final Map 	elkThermostatModeSet = [off: '0', heat: '1', cool: '2', auto: '3', emergencyHeat: '4']
+@Field final Map 	elkThermostatFanModeSet = [auto: '0', on: '1']
 
 
 @Field final Map	elkCommands = [
@@ -994,8 +1026,25 @@ private ifDebug(msg)
 			RequestZoneDefinitions: "zd",
 			Zonepartitionrequest: "zp",
 			ZoneStatusRequest: "zs",
-			RequestZoneanalogvoltage: "zv"
-	
+			RequestZoneanalogvoltage: "zv",
+			SetThermostatData: "ts",
+			setHeatingSetpoint: "ts",
+			setCoolingSetpoint: "ts",
+			setThermostatFanMode: "ts",
+			setThermostatMode: "ts",
+			setThermostatMode: "ts",
+			setThermostatMode: "ts",
+			auto: "ts",
+			cool: "ts",
+			emergencyHeat: "ts",
+			fanAuto: "ts",
+//			fanCirculate: "ts",
+			fanOn: "ts",
+			heat: "ts",
+			off: "ts",
+			ControlOutputOn: "cn",
+			ControlOutputOff: "cf",
+			ControlOutputToggle: "ct",
 ]
 
 @Field static final String Disabled = "Disabled"
@@ -1133,6 +1182,18 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+* 0.1.13
+* Elk M1 Code - No longer requires a 6 digit code (Add leading zeroes to 4 digit codes)
+* Outputs and tasks can now be entered as a number
+* Code clean up - removed some unused code
+* 0.1.12
+* Added support for outputs
+* 0.1.11
+* Built seperate thermostat child driver should allow for multiple thermostats
+* 0.1.10
+* Ability to control thermostat 1
+* 0.1.9
+* Minor changes
 * 0.1.8
 * Ability to read thermostat data (haven't confirmed multiple thermostat support)
 * Added additional mappings for thermostat support
@@ -1168,5 +1229,7 @@ private ifDebug(msg)
 * F - Output support
 * F - Lighting support (this is low priority for me since HE is handling my Zwave lights)
 * F - Thermostat setup page (currenty uses the zone map page)
+* I - Fan Circulate, emergency heat and set schedule not supported
+* F - Request text descriptions for zone setup, tasks and outputs
 *
 ***********************************************************************************************************************/
