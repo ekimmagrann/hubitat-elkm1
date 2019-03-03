@@ -18,10 +18,10 @@
 ***********************************************************************************************************************/
 //Adding thermostat support
 
-public static String version()      {  return "v0.1.2"  }
+public static String version()      {  return "v0.1.3"  }
 
 definition(
-    name: "Elk M1 Application - Beta",
+    name: "Elk M1 Application",
     namespace: "belk",
     singleInstance: true,
     author: "Mike Magrann",
@@ -62,17 +62,17 @@ def mainPage() {
             }
         }
         else {
-			section("<h1>Zone Mapping</h1>") {
-                href (name: "zoneMapsPage", title: "Zones", 
-                description: "Create Virtual Contacts and Map them to Existing Zones in your Envisalink setup",
+			section("<h1>Device Mapping</h1>") {
+                href (name: "zoneMapsPage", title: "Devices", 
+                description: "Create Virtual Devces and Map them to Existing Zones and Devices in your Elk M1 setup",
                 page: "zoneMapsPage")	
             }
 			
-			section("<h1>Notifications</h1>") {
-                href (name: "notificationPage", title: "Notifications", 
-                description: "Enable Push and TTS Messages",
-                page: "notificationPage")	
-            }
+//			section("<h1>Notifications</h1>") {
+//                href (name: "notificationPage", title: "Notifications", 
+//                description: "Enable Push and TTS Messages",
+//                page: "notificationPage")	
+//            }
 			
 			section("<h1>Locks</h1>") {
                 href (name: "lockPage", title: "Locks", 
@@ -212,7 +212,14 @@ def zoneMapsPage() {
                 "your Elk M1 setup.  Define a new Zone in Elk M1 application and the application will then create a Virtual Contact sensor component device, which will report the state of the Elk M1 Zone to which it is mapped. " +  
                 " The Virtual Contact sensor components can be used in Rule Machine or any other application that is capable of leveraging the contact capability.  Elk M1 is capable of 208 zones, your zone map should correspond to the numeric representation of that zone."
         }
-        section("Create a Zone Map") {
+       section("<h2>Create New Zones</h2>"){
+//            href (name: "createZoneImportPage", title: "Import all Elk Zones",
+//            description: "Click to import all Elk zones")
+//				          RequestTextDescriptions()
+				  }
+//				  page: "defineZoneMapImport")}	
+//		section("Create a Zone Map") {
+		section("") {
             href (name: "createZoneMapPage", title: "Create a Zone Map", 
             description: "Create a Virtual Contact Zone",
             page: "defineZoneMap")	
@@ -237,12 +244,27 @@ def defineZoneMap() {
         section("<h1>Create a Zone Map</h1>"){
             paragraph "Create a Map for a zone in Elk M1"
            	input "zoneName", "text", title: "Zone Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
-            input "zoneNumber", "number", title: "Which Zone 1-64", required: true, multiple: false, defaultValue: 001, range: "1..64", submitOnChange: false
+            input "zoneNumber", "number", title: "Which Zone 1-208", required: true, multiple: false, defaultValue: 001, range: "1..64", submitOnChange: false
             input "zoneType", "enum", title: "Motion or Contact Sensor?", required: true, multiple: false, 
                 options: [[0:"Contact"],[1:"Motion"],[2:"Thermostat"]]
         }
 	}
 }
+
+def defineZoneMapImport() {
+    ifDebug("Showing defineZoneMapImport")
+    state.creatingZone = true;
+	dynamicPage(name: "defineZoneMapImport", title: ""){
+        section("<h1>Import all Zones</h1>"){
+            paragraph "Import all zones in Elk M1"
+           	input "zoneName", "text", title: "Zone Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
+            input "zoneNumber", "number", title: "Which Zone 1-208", required: true, multiple: false, defaultValue: 001, range: "1..64", submitOnChange: false
+            input "zoneType", "enum", title: "Motion or Contact Sensor?", required: true, multiple: false, 
+                options: [[0:"Contact"],[1:"Motion"],[2:"Thermostat"]]
+        }
+	}
+}
+
 
 def editZoneMapPage(message) {
     ifDebug("Showing editZoneMapPage")
@@ -361,7 +383,7 @@ def createElkM1ParentDevice(){
     if (getChildDevice(state.ElkM1DNI) == null){
         state.ElkM1DNI = UUID.randomUUID().toString()
     	ifDebug("Setting state.ElkM1DNI ${state.ElkM1DNI}")
-	    addChildDevice("belk", "Elk M1 Driver - Beta", state.ElkM1DNI, null, [name: elkM1Name, isComponent: true, label: elkM1Name])
+	    addChildDevice("belk", "Elk M1 Driver", state.ElkM1DNI, null, [name: elkM1Name, isComponent: true, label: elkM1Name])
         getChildDevice(state.ElkM1DNI).updateSetting("ip",[type:"text", value:elkM1IP])
      	getChildDevice(state.ElkM1DNI).updateSetting("port",[type:"text", value:elkM1Port])
 	   	getChildDevice(state.ElkM1DNI).updateSetting("passwd",[type:"text", value:elkM1Password])
@@ -389,6 +411,36 @@ def castElkM1DeviceStates(){
      	ifDebug("Did not find a Parent Elk M1")
     }
 }
+def importZones(){
+}
+def RequestTextDescriptions(){
+ 	ifDebug("request Text Descriptions()")
+	def cmd = 'sd'
+	def type = "00";
+	def future = "00";
+//      def newlst = [];	
+	  for (i = 1; i <= 208; i++) {
+
+	number = (i.toString());
+		  		number = (number.padLeft(3,'0'));		  
+	def msg = cmd + type + number + future;
+	def len  = (msg.length()+2);
+	String msgStr = Integer.toHexString(len);
+	msgStr = (msgStr.toUpperCase());
+    msgStr = (msgStr.padLeft(2,'0')); 
+	msg = msgStr + msg
+	def cc = generateChksum(msg);
+		msg = msg + cc
+//		  newlst = msg
+//	sendMsg(msg)
+sendHubCommand(new hubitat.device.HubAction(msg, hubitat.device.Protocol.TELNET))
+	pauseExecution(50)
+//    ifDebug("sendMsg $msg")
+//	return new hubitat.device.HubAction(msg, hubitat.device.Protocol.TELNET)
+//	pauseExecution(1000)
+	  }
+}
+	
 
 def createZone(){
     ifDebug("Starting validation of ${zoneName} ZoneType: ${zoneType}")
@@ -622,6 +674,11 @@ private removeChildDevices(delete) {
 
 /***********************************************************************************************************************
 /***********************************************************************************************************************
+*
+* Release Notes
+*
+* Version: 0.1.3
+* Removed any unsupported features for now
 *
 * Version: 0.1.2
 * Added thermostat support (data receipt only)
