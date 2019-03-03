@@ -7,13 +7,15 @@ Copy the Elk M1 Application code from GitHub into a ‘New App’ under the ‘A
 
 Copy the Elk M1 Driver code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
 
+Copy the Elk M1 ChildDriver Thermostat code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
+
 Go to ‘Apps’
 
 Click ‘Load New Apps’
 
 Select ‘Elk M1 Application’ under ‘User Apps’
 
-Enter you information into the setting fields
+Enter you information into the setting fields (You will also enter this data into the Thermostat device)
 
 Click Next
 
