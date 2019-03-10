@@ -18,7 +18,7 @@
 ***********************************************************************************************************************/
 //Adding thermostat support
 
-public static String version()      {  return "v0.1.3"  }
+public static String version()      {  return "v0.1.5"  }
 
 definition(
     name: "Elk M1 Application",
@@ -37,13 +37,12 @@ preferences {
     page(name: "zoneMapsPage", nextPage: "mainPage")
 	page(name: "notificationPage", nextPage: "mainPage")
 	page(name: "lockPage", nextPage: "mainPage")
-	page(name: "thermostatPage", nextPage: "mainPage")
 	page(name: "defineZoneMap", nextPage: "zoneMapsPage")
+	page(name: "defineZoneMapImport", nextPage: "importZones")
+	page(name: "importZones", nextPage: "zoneMapsPage")
     page(name: "editZoneMapPage", nextPage: "zoneMapsPage")
 //    page(name: "aboutPage", nextPage: "mainPage")
 }
-
-
 
 //App Pages/Views
 def mainPage() {
@@ -64,8 +63,17 @@ def mainPage() {
         else {
 			section("<h1>Device Mapping</h1>") {
                 href (name: "zoneMapsPage", title: "Devices", 
-                description: "Create Virtual Devces and Map them to Existing Zones and Devices in your Elk M1 setup",
+                description: "Create Virtual Devices and Map them to Existing Zones, Outputs, Tasks and/or Thermostats in your Elk M1 setup",
                 page: "zoneMapsPage")	
+//            }
+			
+//			section("<h1>Outputs</h1>") {
+//                href (name: "zoneMapsPage", title: "Outputs", 
+//                description: "Create Virtual Switches and Map them to Existing Outputs in your Elk M1 setup",
+//                page: "outputMapsPage")
+//                href (name: "zoneMapsPage", title: "Tasks", 
+//                description: "Create Virtual Switches and Map them to Existing Tasks in your Elk M1 setup",
+//                page: "outputMapsPage")
             }
 			
 //			section("<h1>Notifications</h1>") {
@@ -79,21 +87,13 @@ def mainPage() {
                 description: "Integrate Locks",
                 page: "lockPage")	
             }
-//			section("<h1>Thermostats</h1>") {
-//                href (name: "thermostatPage", title: "Thermostats", 
-//                description: "Integrate Thermostats",
-//                page: "thermostatPage")	
-//            }
+
 			
 //             state.enableHSM = enableHSM
 //                section("<h1>Safety Monitor</h1>") {
 //                    paragraph "Enabling Hubitat Safety Monitor Integration will tie your Envisalink state to the state of HSM.  Your Envisalink will receive the Arm Away, Arm Home and Disarm commands based on the HSM state. " 
 //                        input "enableHSM", "bool", title: "Enable HSM Integration", required: false, multiple: false, defaultValue: false, submitOnChange: true
 //               }
-            
-			
-        
-			
             
              
         }
@@ -136,9 +136,6 @@ def lockPage() {
 			}
 	}
 }
-
-
-
 
 def notificationPage(){
 	dynamicPage(name: "notificationPage", title: none){
@@ -206,30 +203,28 @@ def zoneMapsPage() {
    
 	dynamicPage(name: "zoneMapsPage", title: "", install: true, uninstall: false){
        
-        section("<h1>Zone Maps</h1>"){
-            paragraph "The partition of your Elk M1 Installation should be divided into Zones.  Should the Zone be fitted with a dry contact, you can map the Zone to a Virtual Contact component device in Elk M1 "
-            paragraph "You'll want to determine the Zone number as it is defined in " +
-                "your Elk M1 setup.  Define a new Zone in Elk M1 application and the application will then create a Virtual Contact sensor component device, which will report the state of the Elk M1 Zone to which it is mapped. " +  
-                " The Virtual Contact sensor components can be used in Rule Machine or any other application that is capable of leveraging the contact capability.  Elk M1 is capable of 208 zones, your zone map should correspond to the numeric representation of that zone."
+        section("<h1>Device Maps</h1>"){
+            paragraph "The partition of your Elk M1 Installation may consist of Zones, Outputs, Tasks and Thermostats.  You can choose to map the devices manually or use the import method. "
+            paragraph "You'll want to determine the device number as it is defined in your Elk M1 setup. " +
+                " Define a new device in Elk M1 application and the application will then create either a Virtual sensor component device or an Elk Child device , which will report the state of the Elk M1 device to which it is mapped. " +  
+                " The devices can be used in Rule Machine or any other application that is capable of leveraging the devices capability.  Elk M1 is capable of 208 zones, your zone map should correspond to the numeric representation of that zone."
         }
-       section("<h2>Create New Zones</h2>"){
-//            href (name: "createZoneImportPage", title: "Import all Elk Zones",
-//            description: "Click to import all Elk zones")
-//				          RequestTextDescriptions()
-				  }
-//				  page: "defineZoneMapImport")}	
-//		section("Create a Zone Map") {
+       section("<h2>Create New Devices</h2>"){
+            href (name: "createZoneImportPage", title: "Import Elk Devices",
+            description: "Click to import Elk devices",
+				  page: "defineZoneMapImport")
+	   }
 		section("") {
-            href (name: "createZoneMapPage", title: "Create a Zone Map", 
-            description: "Create a Virtual Contact Zone",
+            href (name: "createZoneMapPage", title: "Create a Device Map", 
+            description: "Create a Virtual Device Manually",
             page: "defineZoneMap")	
         }
         
-       section("<h2>Existing Zones</h2>"){
+       section("<h2>Existing Devices</h2>"){
        		def deviceList = ""
             getChildDevice(state.ElkM1DNI).getChildDevices().each{
                 href (name: "editZoneMapPage", title: "${it.label}", 
-                description: "Zone Details",
+                description: "Device Details",
                 params: [deviceNetworkId: it.deviceNetworkId],
                 page: "editZoneMapPage")	
             }	
@@ -241,30 +236,31 @@ def defineZoneMap() {
     ifDebug("Showing defineZoneMap")
     state.creatingZone = true;
 	dynamicPage(name: "defineZoneMap", title: ""){
-        section("<h1>Create a Zone Map</h1>"){
-            paragraph "Create a Map for a zone in Elk M1"
-           	input "zoneName", "text", title: "Zone Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
-            input "zoneNumber", "number", title: "Which Zone 1-208", required: true, multiple: false, defaultValue: 001, range: "1..64", submitOnChange: false
-            input "zoneType", "enum", title: "Motion or Contact Sensor?", required: true, multiple: false, 
-                options: [[0:"Contact"],[1:"Motion"],[2:"Thermostat"]]
+        section("<h1>Create a Device Map</h1>"){
+            paragraph "Create a Map for a device in Elk M1"
+           	input "zoneName", "text", title: "Device Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
+            input "zoneNumber", "number", title: "Which Device 1-208", required: true, multiple: false, defaultValue: 001, range: "1..208", submitOnChange: false
+            input "zoneType", "enum", title: "Motion, Contact, Output, Task or Thermostat Device?", required: true, multiple: false, 
+                options: [['00':"Contact"],['01':"Motion"],['11':"Thermostat"],['04':"Output"],['05':"Task"]]
         }
 	}
 }
 
 def defineZoneMapImport() {
     ifDebug("Showing defineZoneMapImport")
-    state.creatingZone = true;
+	getChildDevice(state.ElkM1DNI).initialize()
+	state.creatingZone = true;
 	dynamicPage(name: "defineZoneMapImport", title: ""){
-        section("<h1>Import all Zones</h1>"){
-            paragraph "Import all zones in Elk M1"
-           	input "zoneName", "text", title: "Zone Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
-            input "zoneNumber", "number", title: "Which Zone 1-208", required: true, multiple: false, defaultValue: 001, range: "1..64", submitOnChange: false
-            input "zoneType", "enum", title: "Motion or Contact Sensor?", required: true, multiple: false, 
-                options: [[0:"Contact"],[1:"Motion"],[2:"Thermostat"]]
-        }
+        section("<h1>Import Elk Zones</h1>"){
+		paragraph "Create a Map for a zone in Elk M1"
+		input "deviceType", "enum", title: "Select Device Type", required: true, multiple: false, 
+			options: [['00':"Zones"],['11':"Thermostat"],['04':"Output"],['05':"Task"]]
+//			state.deviceType = deviceType;
 	}
-}
+	}
 
+//	importZones(deviceType)
+}
 
 def editZoneMapPage(message) {
     ifDebug("Showing editZoneMapPage")
@@ -281,93 +277,20 @@ def editZoneMapPage(message) {
     }
 	if (zoneDevice.capabilities.find { item -> item.name.startsWith('Thermostat')}){
         paragraphText = paragraphText + "Thermostat\n"
-    } 
+    }
+	if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}){
+        paragraphText = paragraphText + "Virtual Switch\n"
+    }
+//	if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}){
+//        paragraphText = paragraphText + "Virtual Switch\n"
+//    } 
     dynamicPage(name: "editZoneMapPage", title: ""){
         section("<h1>${zoneDevice.label}</h1>"){
             paragraph paragraphText
         }
-      
     }
-    
-    
 }
 
-//New Code Temperature Code
-
-def thermostatPage() {
-    ifDebug("Showing thermostatPage")
-    if (getChildDevices().size() == 0 && !state.elkM1IntegrationInstalled)
-    {
-        createElkM1ParentDevice()
-    }
-
-    if (state.creatingThermostat)
-    {
-        createThermostat()
-    }
-   
-	dynamicPage(name: "thermostatPage", title: "", install: true, uninstall: false){
-       
-        section("<h1>Thermostat Maps</h1>"){
-            paragraph "The partition of your Elk M1 Installation should be divided into Zones.  Should the Zone be fitted with a dry contact, you can map the Zone to a Virtual Contact component device in Elk M1 "
-            paragraph "You'll want to determine the Zone number as it is defined in " +
-                "your Elk M1 setup.  Define a new Zone in Elk M1 application and the application will then create a Virtual Contact sensor component device, which will report the state of the Elk M1 Zone to which it is mapped. " +  
-                " The Virtual Contact sensor components can be used in Rule Machine or any other application that is capable of leveraging the contact capability.  Elk M1 is capable of 208 zones, your zone map should correspond to the numeric representation of that zone."
-        }
-        section("Create a Thermostat Map") {
-            href (name: "createThermostatMapPage", title: "Create a Thermostat Map", 
-            description: "Create a Virtual Thermostat",
-            page: "defineThermostatMap")	
-        }
-        
-       section("<h2>Existing Thermostats</h2>"){
-       		def deviceList = ""
-            getChildDevice(state.ElkM1DNI).getChildDevices().each{
-                href (name: "editThermostatMapPage", title: "${it.label}", 
-                description: "Thermostat Details",
-                params: [deviceNetworkId: it.deviceNetworkId],
-                page: "editThermostatMapPage")	
-            }	
-		}
-	}
-}
-
-def defineThermostatMap() {
-    ifDebug("Showing defineThermostatMap")
-    state.creatingZone = true;
-	dynamicPage(name: "defineThermostatMap", title: ""){
-        section("<h1>Create a Thermostat Map</h1>"){
-            paragraph "Create a Map for a thermostat in Elk M1"
-           	input "thermostatName", "text", title: "Thermostat Name", required: true, multiple: false, defaultValue: "Thermostat x", submitOnChange: false
-            input "thermostatNumber", "number", title: "Which Number 1-8", required: true, multiple: false, defaultValue: 001, range: "1..8", submitOnChange: false
-            input "thermostatType", "enum", title: "Motion or Contact Sensor?", required: true, multiple: false, 
-                options: [[0:"Contact"],[1:"Motion"]]
-        }
-	}
-}
-
-def editThermostatMapPage(message) {
-    ifDebug("Showing editThermostatMapPage")
-    ifDebug("editing ${message.deviceNetworkId}")
-    state.allZones = getChildDevice(state.ElkM1DNI).getChildDevices()
-    def thermostatDevice = getChildDevice(state.ElkM1DNI).getChildDevice(message.deviceNetworkId)
-    def paragraphText = ""
-    state.editedZoneDNI = message.deviceNetworkId;
-    if (thermostatDevice.capabilities.find { item -> item.name.startsWith('Motion')}){
-        paragraphText = paragraphText + "Motion Sensor\n"
-    } 
-    if (thermostatDevice.capabilities.find { item -> item.name.startsWith('Contact')}){
-        paragraphText = paragraphText + "Contact Sensor\n"
-    } 
-    dynamicPage(name: "editThermostatMapPage", title: ""){
-        section("<h1>${thermostatDevice.label}</h1>"){
-            paragraph paragraphText
-        }
-      
-    }
-    
-    
-}
 //End New Code Temp
 def clearStateVariables(){
 	ifDebug("Clearing State Variables just in case.")
@@ -411,47 +334,44 @@ def castElkM1DeviceStates(){
      	ifDebug("Did not find a Parent Elk M1")
     }
 }
-def importZones(){
-}
-def RequestTextDescriptions(){
- 	ifDebug("request Text Descriptions()")
-	def cmd = 'sd'
-	def type = "00";
-	def future = "00";
-//      def newlst = [];	
-	  for (i = 1; i <= 208; i++) {
 
-	number = (i.toString());
-		  		number = (number.padLeft(3,'0'));		  
-	def msg = cmd + type + number + future;
-	def len  = (msg.length()+2);
-	String msgStr = Integer.toHexString(len);
-	msgStr = (msgStr.toUpperCase());
-    msgStr = (msgStr.padLeft(2,'0')); 
-	msg = msgStr + msg
-	def cc = generateChksum(msg);
-		msg = msg + cc
-//		  newlst = msg
-//	sendMsg(msg)
-sendHubCommand(new hubitat.device.HubAction(msg, hubitat.device.Protocol.TELNET))
-	pauseExecution(50)
-//    ifDebug("sendMsg $msg")
-//	return new hubitat.device.HubAction(msg, hubitat.device.Protocol.TELNET)
-//	pauseExecution(1000)
-	  }
+private generateChksum(String msg){
+		def msgArray = msg.toCharArray()
+        def msgSum = 0
+        msgArray.each { (msgSum += (int)it) }
+		msgSum = msgSum  % 256;
+		msgSum = 256 - msgSum;
+	 	String  chkSumStr = Integer.toHexString(msgSum);
+		chkSumStr = (chkSumStr.toUpperCase());
+	    chkSumStr = (chkSumStr.padLeft(2,'0')); 
 }
-	
+
+def importZones(){
+	dynamicPage(name: "defineZoneMapImport", title: ""){
+	section("<h1>Import Elk Zones</h1>"){
+	paragraph "Finished importing zones for Elk M1 - Click Next to continue"
+	getChildDevice(state.ElkM1DNI).RequestTextDescriptions(deviceType)
+	state.creatingZone = false;	
+	   }
+ }
+}
 
 def createZone(){
     ifDebug("Starting validation of ${zoneName} ZoneType: ${zoneType}")
     String formatted = String.format("%03d", zoneNumber)
-    String formatted2 = String.format("%02d", zoneNumber)
+    String formatted2 = String.format("%03d", zoneNumber)
    String deviceNetworkId
-    if (zoneType == "2"){
+    if (zoneType == "05"){
+	    deviceNetworkId = state.ElkM1DNI + "_K_" + formatted
+    }else    
+    if (zoneType == "04"){
+	    deviceNetworkId = state.ElkM1DNI + "_O_" + formatted
+    }else    
+    if (zoneType == "11"){
 	    deviceNetworkId = state.ElkM1DNI + "_T_" + formatted2
     }else    
-    if (zoneType == "0"){
-	    deviceNetworkId = state.ElkM1DNI + "_" + formatted
+    if (zoneType == "00"){
+	    deviceNetworkId = state.ElkM1DNI + "_C_" + formatted
     }else{
         deviceNetworkId = state.ElkM1DNI + "_M_" + formatted
     }
@@ -677,6 +597,14 @@ private removeChildDevices(delete) {
 *
 * Release Notes
 *
+* Version: 0.1.5
+* Added support for manual inclusion of Elk M1 outputs and tasks
+* Added support for importing Elk M1 outputs, tasks and thermostats
+* Cleaned up app and related code
+*
+* Version: 0.1.4
+* Added support for importing Elk M1 zones
+*
 * Version: 0.1.3
 * Removed any unsupported features for now
 *
@@ -688,4 +616,12 @@ private removeChildDevices(delete) {
 * HSM integration not currently supported
 * All functionality not fully tested
 * 
+***********************************************************************************************************************/
+/***********************************************************************************************************************
+*
+*Feature Request & Known Issues
+*
+* I - Must initialize the Elk M1 Device prior to using the Elk M1 App Import Zone functions
+* I - System configuration needs to be set up manually on the thermostat device page
+*
 */
