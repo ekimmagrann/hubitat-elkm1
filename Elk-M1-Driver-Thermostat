@@ -22,332 +22,118 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.3"  }
+public static String version()      {  return "v0.1.4"  }
 public static boolean isDebug() { return true }
 
-import groovy.transform.Field
-import java.util.regex.Matcher
-import java.util.regex.Pattern;
     
 metadata {
 	definition (name: "Elk M1 Driver Thermostat", namespace: "belk", author: "Mike Magrann") {
-		capability "Initialize"
-		capability "Telnet"
 		capability "Thermostat"
-        command "RequestThermostatData"
-	}
-
-	preferences {
-		input("ip", "text", title: "IP Address", description: "ip", required: true)
-		input("port", "text", title: "Port", description: "port", required: true)
-        input("passwd", "text", title: "Password", description: "password", required: true)
-        input("code", "text", title: "Code", description: "code", required: true)
+//        command "RequestThermostatData"
 	}
 }
-
-//general handlers
-def installed() {
-	log.warn "installed..."
-    initialize()
-   }
-def updated() {
-	ifDebug("updated...")
-    ifDebug("Configuring IP: ${ip}, Port${port}, Code: ${code}, Password: ${passwd}")
-	initialize()
-}
-def initialize() {
-    telnetClose() 
-	try {
-		//open telnet connection
-		telnetConnect([termChars:[13,10]], ip, 2101, null, null)
-		//give it a chance to start
-		pauseExecution(1000)
-		ifDebug("Telnet connection to Elk M1 established")
-        //poll()
-	} catch(e) {
-		log.warn "initialize error: ${e.message}"
-	}
-}
-
-//Elk M1 Command Line Request - Start of
 
 def RequestTemperatureData(){
  	ifDebug("requestTemperatureData()")
     def cmd = elkCommands["RequestTemperatureData"]
 	prepMsg2(cmd)
 }
+
 def RequestThermostatData(){
- 	ifDebug("requestThermostatData()")
-    def cmd = elkCommands["RequestThermostatData"]
-	def thermostat = "01";
-	cmd = cmd + thermostat;
-    prepMsg2(cmd)
+ 	ifDebug("requestTstatData()")
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+ 	ifDebug("requestTstatData()" + tstat)
+	getParent().RequestThermostatData(tstat)
 }
 //NEW CODE
 def setThermostatMode(thermostatmode){
-    def cmd = elkCommands["setThermostatMode"]
-    thermostat = "01";
-    def value = elkThermostatModeSet[thermostatmode]
-    	value = (value.padLeft(2,'0')); 
-	element = "0";
-	cmd = cmd + thermostat + value + element;
- 	ifDebug("setThermostatMode()" + cmd + thermostatmode + thermostat)
-
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().setThermostatMode(tstat, thermostatmode)
 }
 def auto(){
-    def cmd = elkCommands["auto"]
-    thermostat = "01";
-    value = "03";
-	element = "0";
-	cmd = cmd + thermostat + value + element;
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().auto(tstat)
 }
 def heat(){
-    def cmd = elkCommands["heat"]
-    thermostat = "01";
-    value = "01";
-	element = "0";
-	cmd = cmd + thermostat + value + element;
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().heat(tstat)
 }
 def cool(){
-   def cmd = elkCommands["cool"]
-    thermostat = "01";
-    value = "02";
-	element = "0";
-	cmd = cmd + thermostat + value + element;
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().cool(tstat)
 }
 def off(){
-    def cmd = elkCommands["off"]
-    thermostat = "01";
-    value = "00";
-	element = "0";
-	cmd = cmd + thermostat + value + element;
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().off(tstat)
 }
 def setThermostatFanMode(fanmode){
-    def cmd = elkCommands["setThermostatFanMode"]
-    thermostat = "01";
-    def value = elkThermostatFanModeSet[fanmode]
-    	value = (value.padLeft(2,'0')); 
-	element = "2";
-	cmd = cmd + thermostat + value + element;
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().setThermostatFanMode(tstat, fanmode)
 }
 def fanOn(){
-    def cmd = elkCommands["fanOn"]
-    thermostat = "01";
-    value = "01";
-	element = "2";
-	cmd = cmd + thermostat + value + element;
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().fanOn(tstat)
 }
 def fanAuto(){
-    def cmd = elkCommands["fanAuto"]
-    thermostat = "01";
-    value = "00";
-	element = "2";
-	cmd = cmd + thermostat + value + element;
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().fanAuto(tstat)
 }
 def setHeatingSetpoint(degrees){
-    def cmd = elkCommands["setHeatingSetpoint"]
-    thermostat = "01";
-    value = degrees;
-    element = "5";
-	cmd = cmd + thermostat + value + element;
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().setHeatingSetpoint(tstat, degrees)
 }
 def setCoolingSetpoint(degrees){
-    def cmd = elkCommands["setCoolingSetpoint"]
-    thermostat = "01";
-    value = degrees;
-    element = "4";
-	cmd = cmd + thermostat + value + element;
-    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().setCoolingSetpoint(tstat, degrees)
 }
 def SetThermostatData(){
- 	ifDebug("setThermostatData()")
-    def cmd = elkCommands["SetThermostatData"]
-//    thermostat = thermostat;
-//    value = value;
-//    element = element;
-//	cmd = cmd + thermostat + value + element;
-//    prepMsg2(cmd)
+	tstat = device.deviceNetworkId
+	substringCount = tstat.length()-3
+	tstat = tstat.substring(substringCount).take(3)
+	tstat = tstat.substring(1);
+	getParent().SetThermostatData()
 }
-
-//Elk M1 Command Line Request - End of
-
-//Elk M1 Message Send Lines - Start of
-def prepMsg(cmd) {
-	def area = "1";
-    def code = (code.padLeft(6,'0'));
-//	def code = code;
-	cmd = cmd + area + code;
-	prepMsg2(cmd)
-}
-
-def prepMsg2(cmd) {
-	def future = "00";
-	def msg = cmd + future;
-	def len  = (msg.length()+2);
-	String msgStr = Integer.toHexString(len);
-	msgStr = (msgStr.toUpperCase());
-    	msgStr = (msgStr.padLeft(2,'0')); 
-	msg = msgStr + msg
-	def cc = generateChksum(msg);
-	msg = msg + cc
-	sendMsg(msg)
-}
-
-private generateChksum(String msg){
-		def msgArray = msg.toCharArray()
-        def msgSum = 0
-        msgArray.each { (msgSum += (int)it) }
-		msgSum = msgSum  % 256;
-		msgSum = 256 - msgSum;
-	 	String  chkSumStr = Integer.toHexString(msgSum);
-		chkSumStr = (chkSumStr.toUpperCase());
-	    chkSumStr = (chkSumStr.padLeft(2,'0')); 
-}
-
-def sendMsg(msg) {
-    s = msg
-    ifDebug("sendMsg $s")
-	return new hubitat.device.HubAction(s, hubitat.device.Protocol.TELNET)
-}
-
-//Elk M1 Event Receipt Lines
-private parse(String message) {
-    ifDebug("Parsing Incoming message: " + message)
-}
-
-//Elk M1 Message Send Lines - End of
-
-// Zone Status
-
-
-//Telnet
-def getReTry(Boolean inc){
-	def reTry = (state.reTryCount ?: 0).toInteger()
-	if (inc) reTry++
-	state.reTryCount = reTry
-	return reTry
-}
-
-def telnetStatus(String status){
-	log.warn "telnetStatus- error: ${status}"
-	if (status != "receive error: Stream is closed"){
-		getReTry(true)
-		log.error "Telnet connection dropped..."
-		initialize()
-	} else {
-		log.warn "Telnet is restarting..."
-	}
-}
-
-private ifDebug(msg)     
-{  
-	parent.ifDebug('Connection Driver: ' + msg)
-}
-
-////REFERENCES AND MAPPINGS////
-
-@Field final Map	elkCommands = [
-
-			Disarm: "a0",
-			ArmAway: "a1",
-			ArmHome: "a2",
-			ArmStayInstant: "a3",
-			ArmNight: "a4",
-			ArmNightInstant: "a5",
-			ArmVacation: "a6",
-			ArmStepAway: "a7",
-			ArmStepStay: "a8",
-			RequestArmStatus: "as",
-			AlarmByZoneRequest: "az",
-			RequestTemperatureData: "lw",
-			RequestRealTimeClockRead: "rr",
-			RealTimeClockWrite: "rw",
-			RequestTextDescriptions: "sd",
-			Speakphrase: "sp",
-			RequestSystemTroubleStatus: "ss",
-			Requesttemperature: "st",
-			Speakword: "sw",
-			TaskActivation: "tn",
-			RequestThermostatData: "tr",
-			SetThermostatData: "ts",
-			Requestusercodeareas: "ua",
-			requestVersionNumberofM1: "vn",
-			ReplyfromEthernettest: "xk",
-			Zonebypassrequest: "zb",
-			RequestZoneDefinitions: "zd",
-			Zonepartitionrequest: "zp",
-			ZoneStatusRequest: "zs",
-			RequestZoneanalogvoltage: "zv",
-			SetThermostatData: "ts",
-			setHeatingSetpoint: "ts",
-			setCoolingSetpoint: "ts",
-			setThermostatFanMode: "ts",
-			setThermostatMode: "ts",
-			setThermostatMode: "ts",
-			setThermostatMode: "ts",
-			auto: "ts",
-			cool: "ts",
-			emergencyHeat: "ts",
-			fanAuto: "ts",
-//			fanCirculate: "ts",
-			fanOn: "ts",
-			heat: "ts",
-			off: "ts",
-]
-
-@Field static final String Fahrenheit = "Fahrenheit"
-@Field static final String Celcius = "Celcius"
-
-@Field final Map	elkTemperatureModes = [
-  F: Fahrenheit,
-  C: Celcius
-]
-
-
-@Field static final String TemperatureProbe = "Temperature Probe"
-@Field static final String Keypads = "Keypads"
-@Field static final String Thermostats = "Thermostats"
-
-@Field final Map	elkTempTypes = [
-0: TemperatureProbe,
-1: Keypads,
-2: Thermostats
-]
-
-//NEW CODE
-@Field static final String Off = "Off"
-@Field static final String Heat = "Heat"
-@Field static final String Cool = "Cool"
-@Field static final String Auto = "Auto"
-@Field static final String EmergencyHeat = "Emergency Heat"
-@Field static final String False = "False"
-@Field static final String True = "True"
-@Field static final String FanAuto = "Fan Auto"
-@Field static final String Fanturnedon = "Fan turned on"
-
-
-@Field final Map 	elkThermostatMode = ['0': Off, '1': Heat, '2': Cool, '3': Auto, '4': EmergencyHeat]
-@Field final Map 	elkThermostatHold = ['0': False, '1': True]
-@Field final Map 	elkThermostatFan = ['0': FanAuto, '1': Fanturnedon]
-
-@Field final Map 	elkThermostatModeSet = [off: '0', heat: '1', cool: '2', auto: '3', emergencyHeat: '4']
-@Field final Map 	elkThermostatFanModeSet = [auto: '0', on: '1']
-
-
-
 	
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.4
+* Rewrote code to use parent telnet
+*
 * 0.1.3
 * No longer requires a 6 digit code - Add leading zeroes to 4 digit codes
 * Code clean up
