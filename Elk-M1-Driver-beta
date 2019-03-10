@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.15"  }
+public static String version()      {  return "v0.1.16"  }
 public static boolean isDebug() { return true }
 
 import groovy.transform.Field
@@ -527,7 +527,10 @@ private parse(String message) {
 		if (text.matches("(.*)Door(.*)")){
 			zoneType = "Contact"
 		} else 
-		if (text.matches("(.*)Window(.*)")){
+		if (text.matches("(.*)door(.*)")){
+			zoneType = "Contact"
+		} else 
+		if (text.matches("(.*)indow(.*)")){
 			zoneType = "Contact"
 		} else
 			if (text.matches("(.*)Motion(.*)")){
@@ -1399,6 +1402,8 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+* 0.1.16
+* Changed the one import to be not case sensitive
 * 0.1.15
 * Added support for manual inclusion of Elk M1 outputs and tasks
 * Added support for importing Elk M1 outputs, tasks and thermostats
