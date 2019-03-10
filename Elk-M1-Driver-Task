@@ -1,0 +1,62 @@
+/***********************************************************************************************************************
+*
+*  A Hubitat Child Driver supporting Elk M1 Tasks.
+*  
+*  License:
+*  This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+*  General Public License as published by the Free Software Foundation, either version 3 of the License, or
+*  (at your option) any later version.
+*
+*  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+*  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+*  for more details.
+*
+*  Name: Elk M1 Driver Tasks
+*
+*
+*  I am not a programmer so alot of this work is through trial and error. I also spent a good amount of time looking 
+*  at other integrations on various platforms.
+*
+***See Release Notes at the bottom***
+***********************************************************************************************************************/
+
+public static String version()      {  return "v0.1.1"  }
+//public static boolean isDebug() { return true }
+
+//import groovy.transform.Field
+//import java.util.regex.Matcher
+//import java.util.regex.Pattern;
+    
+metadata {
+	definition (name: "Elk M1 Driver Tasks", namespace: "belk", author: "Mike Magrann") {
+		capability "Switch"
+	}
+}	
+
+def on(){
+	task = device.deviceNetworkId
+	substringCount = task.length()-3
+	task = task.substring(substringCount).take(3)
+	getParent().TaskActivations(task)
+}
+def off(){
+	task = device.deviceNetworkId
+	substringCount = task.length()-3
+	task = task.substring(substringCount).take(3)
+	getParent().TaskActivations(task)
+}
+
+/***********************************************************************************************************************
+*
+* Release Notes (see Known Issues Below)
+*
+* 0.1.1
+* New child driver to support tasks
+*
+***********************************************************************************************************************/
+/***********************************************************************************************************************
+*
+*Feature Request & Known Issues
+*
+*
+***********************************************************************************************************************/
