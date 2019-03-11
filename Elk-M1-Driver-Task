@@ -20,7 +20,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.1"  }
+public static String version()      {  return "v0.1.2"  }
 //public static boolean isDebug() { return true }
 
 //import groovy.transform.Field
@@ -37,18 +37,18 @@ def on(){
 	task = device.deviceNetworkId
 	substringCount = task.length()-3
 	task = task.substring(substringCount).take(3)
-	getParent().TaskActivations(task)
+	getParent().TaskActivation(task)
 }
 def off(){
-	task = device.deviceNetworkId
-	substringCount = task.length()-3
-	task = task.substring(substringCount).take(3)
-	getParent().TaskActivations(task)
 }
 
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.2
+* Changed TaskActivations to TaskActivation
+* Removed code for 'off' since this is not relevant
 *
 * 0.1.1
 * New child driver to support tasks
