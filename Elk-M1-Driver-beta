@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.16"  }
+public static String version()      {  return "v0.1.17"  }
 public static boolean isDebug() { return true }
 
 import groovy.transform.Field
@@ -54,18 +54,7 @@ metadata {
 		command "RequestZoneDefinitions"
 		command "ZoneStatusRequest"
 		command "TaskActivations"
-//		command "heat"
-//		command "off"
-//		command "setThermostatMode"
-//		command "auto"
-//		command "cool"
-//		command "setThermostatFanMode"
-//		command "fanOn"
-//		command "fanAuto"
-//		command "setHeatingSetpoint"
-//		command "setCoolingSetpoint"
 		attribute	"Status", "string"
-
 	}
 
 	preferences {
@@ -103,9 +92,6 @@ def uninstalled() {
     telnetClose() 
 	removeChildDevices(getChildDevices())
 }
-
-
-
 
 
 //Elk M1 Command Line Request - Start of
@@ -162,7 +148,6 @@ def RequestTextDescriptions(deviceType){
 	def type = deviceType;
 	def future = "00";
 	  for (i = 1; i <= 208; i++) {
-
 	number = (i.toString());
 		  		number = (number.padLeft(3,'0'));		  
 	def msg = cmd + type + number + future;
@@ -206,14 +191,6 @@ def ControlOutputToggle(output){
 }
 def TaskActivation(task){
  	ifDebug("taskActivation()")
-    def cmd = elkCommands["TaskActivation"]
-	task = task.toString();
-    task = (task.padLeft(3,'0'));
-	cmd = cmd + task;
-    prepMsg2(cmd)
-}
-def TaskActivations(task){
-// 	ifDebug("taskActivations()")
     def cmd = elkCommands["TaskActivation"]
 	task = task.toString();
     task = (task.padLeft(3,'0'));
@@ -694,19 +671,7 @@ if (getChildDevice(deviceNetworkId)!=null){
 }
 
 def taskStatus(message){
-		def ElkM1DNI = device.deviceNetworkId
-		def task = message.substring(4, 7)
-//			def outputState = message.substring(7, 8)
-//			outputState = elkOutputStates[outputState];
-		deviceNetworkId = ElkM1DNI + "_T_" + outputNumber;
-if (getChildDevice(deviceNetworkId)!=null){
-     zoneDevice = getChildDevice(deviceNetworkId)
-         if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}){
-            zoneDevice.sendEvent(name: "switch", value: (outputState))
-         }
 }
-}
-
 
 //Zone Status (Currently working on this)
 def zoneTemp(message){
@@ -726,10 +691,9 @@ def zoneTemp(message){
 			def cHumid = message.substring(15, 17)
 		ifDebug("Thermostat Data Check: " + tNumber + ", " + mode + " Mode, Hold temperature = " + hold + ", " + fan + ", Current Temperature = " + cTemp + ", Heat Setpoint = " + hSet + ", Cool Setpoint = " + cSet);
     	tNumber = (tNumber.padLeft(3,'0')); 
-	deviceNetworkId = ElkM1DNI + "_T_" + tNumber;
+		deviceNetworkId = ElkM1DNI + "_T_" + tNumber;
 		ifDebug("Thermostat Data Check: " + deviceNetworkId);
 
-//if (getChildDevice("${device.deviceNetworkId}_T_${message.substring(substringCount).take(2)}")!=null){
 if (getChildDevice(deviceNetworkId)!=null){
      zoneDevice = getChildDevice(deviceNetworkId)
          if (zoneDevice.capabilities.find { item -> item.name.startsWith('Thermostat')}){
@@ -751,7 +715,6 @@ def createZones(name, text, zoneType){
 //    log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: ${zoneType}"
    String deviceNetworkId
     def newDevice
-//	def ElkM1DNI = "ELKM1"
 	def ElkM1DNI = device.deviceNetworkId
             ifDebug("DNI: " + ElkM1DNI); 
 	def textLabel = "Zone " + name + " - " + text
@@ -761,19 +724,19 @@ def createZones(name, text, zoneType){
     if (zoneType == "Contact")
     {
 	deviceNetworkId = ElkM1DNI + "_C_" + name
-    	addChildDevice("hubitat", "Virtual Contact Sensor", deviceNetworkId, [name: textLabel, isComponent: true, label: textLabel])
+    	addChildDevice("hubitat", "Virtual Contact Sensor", deviceNetworkId, [name: textLabel, isComponent: false, label: textLabel])
 	}
 	else if (zoneType == "Motion")
 {
 	deviceNetworkId = ElkM1DNI + "_M_" + name
-    	addChildDevice("hubitat", "Virtual Motion Sensor", deviceNetworkId, [name: textLabel, isComponent: true, label: textLabel])
+    	addChildDevice("hubitat", "Virtual Motion Sensor", deviceNetworkId, [name: textLabel, isComponent: false, label: textLabel])
         newDevice = getChildDevice(deviceNetworkId)
         newDevice.updateSetting("autoInactive",[type:"string", value:'disabled'])
 }
 	else if (zoneType == "Thermostat")
 {
 	deviceNetworkId = ElkM1DNI + "_T_" + name
-    	addChildDevice("belk", "Elk M1 Driver Thermostat", deviceNetworkId, [name: tstatLabel, isComponent: true, label: tstatLabel])
+    	addChildDevice("belk", "Elk M1 Driver Thermostat", deviceNetworkId, [name: tstatLabel, isComponent: false, label: tstatLabel])
         newDevice = getChildDevice(deviceNetworkId)
 }	else if (zoneType == "Output")
 {
@@ -789,33 +752,32 @@ def createZones(name, text, zoneType){
 }
 	else {
         deviceNetworkId = ElkM1DNI + "_M_" + name
-     	addChildDevice("hubitat", "Virtual Motion Sensor", deviceNetworkId, [name: textLabel, isComponent: true, label: textLabel])   
+     	addChildDevice("hubitat", "Virtual Motion Sensor", deviceNetworkId, [name: textLabel, isComponent: false, label: textLabel])   
         newDevice = getChildDevice(deviceNetworkId)
         newDevice.updateSetting("autoInactive",[type:"string", value:'disabled'])
     }
 }
-
 
 def createZone(zoneInfo){
     log.info "Creating ${zoneInfo.zoneName} with deviceNetworkId = ${zoneInfo.deviceNetworkId} of type: ${zoneInfo.zoneType}"
     def newDevice
     if (zoneInfo.zoneType == "00")
     {
-    	addChildDevice("hubitat", "Virtual Contact Sensor", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: true, label: zoneInfo.zoneName])
+    	addChildDevice("hubitat", "Virtual Contact Sensor", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: false, label: zoneInfo.zoneName])
 	}
 	else if (zoneInfo.zoneType == "11")
     {
-    	addChildDevice("belk", "Elk M1 Driver Thermostat", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: true, label: zoneInfo.zoneName])
+    	addChildDevice("belk", "Elk M1 Driver Thermostat", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: false, label: zoneInfo.zoneName])
     }
 	else if (zoneInfo.zoneType == "05")
     {
-    	addChildDevice("belk", "Elk M1 Driver Tasks", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: true, label: zoneInfo.zoneName])
+    	addChildDevice("belk", "Elk M1 Driver Tasks", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: false, label: zoneInfo.zoneName])
     }
 	else if (zoneInfo.zoneType == "04")
     {
-    	addChildDevice("belk", "Elk M1 Driver Outputs", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: true, label: zoneInfo.zoneName])
+    	addChildDevice("belk", "Elk M1 Driver Outputs", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: false, label: zoneInfo.zoneName])
     } else {
-     	addChildDevice("hubitat", "Virtual Motion Sensor", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: true, label: zoneInfo.zoneName])   
+     	addChildDevice("hubitat", "Virtual Motion Sensor", zoneInfo.deviceNetworkId, [name: zoneInfo.zoneName, isComponent: false, label: zoneInfo.zoneName])   
         newDevice = getChildDevice(zoneInfo.deviceNetworkId)
         newDevice.updateSetting("autoInactive",[type:"enum", value:0])
     }
@@ -824,8 +786,6 @@ def removeZone(zoneInfo){
     log.info "Removing ${zoneInfo.zoneName} with deviceNetworkId = ${zoneInfo.deviceNetworkId}"
     deleteChildDevice(zoneInfo.deviceNetworkId)
 }
-
-
 
 def disarming(){
 	if (state.armState != "disarmed"){
@@ -1402,8 +1362,13 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.17
+* Changed devices 'isComponent' to 'False' - this will allow the removal of devices and changing of drivers
+*
 * 0.1.16
 * Changed the one import to be not case sensitive
+*
 * 0.1.15
 * Added support for manual inclusion of Elk M1 outputs and tasks
 * Added support for importing Elk M1 outputs, tasks and thermostats
