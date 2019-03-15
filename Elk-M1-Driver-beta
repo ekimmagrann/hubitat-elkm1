@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.17"  }
+public static String version()      {  return "v0.1.18"  }
 public static boolean isDebug() { return true }
 
 import groovy.transform.Field
@@ -549,6 +549,8 @@ private parse(String message) {
   } else {
   if (zoneStatus == '1') {
 	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - " + NormalOpen);
+//This should actually be zoneOpen but in order to show inactive status we are using zoneClosed.
+	  				zoneClosed(message)
 	              break;
   }  else {
   if (zoneStatus == '2') {
@@ -581,12 +583,18 @@ private parse(String message) {
 	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + ViolatedOpen);
 	  				zoneOpen(message)
 	              break;
-  } 
+  }  else {
+  if (zoneStatus == 'B') {
+	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + ViolatedShort);
+//This should actually be zoneClosed but in order to show active status we are using zoneOpen.
+	  				zoneOpen(message)
+	              break;
+  }  
 	 else {
     zoneStatus = 'Unknown zone status message';
   }
 		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus);
-  }}}}}}}}
+  }}}}}}}}}
 
             break;
 
@@ -630,13 +638,29 @@ def zoneOpen(message){
             ifDebug("Contact Open")
             zoneDevice.open()
 		}
-         else {
-            ifDebug("Motion Active")
-            zoneDevice.active()
-        }
+//         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('Motion')}){
+//            ifDebug("Motion Active")
+//            zoneDevice.active()
+//        }
+//         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('Water')}){
+//            ifDebug("Water Wet")
+//            zoneDevice.wet()
+//        }
+//         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('CarbonMonoxide')}){
+//            ifDebug("CO Detected")
+//            zoneDevice.detected()
+//        }
+//         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('Smoke')}){
+//            ifDebug("Smoke Detected")
+//            zoneDevice.detected()
+//        }
+		else
+		{
+		ifDebug("Motion Active")
+		zoneDevice.active()
     }
 }
-
+}
 def zoneClosed(message){
     def zoneDevice
     def substringCount = (message.length()-8);
@@ -650,6 +674,22 @@ def zoneClosed(message){
 	     	ifDebug("Contact Closed")
     		zoneDevice.close()
         }
+//         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('Motion')}){
+//            ifDebug("Motion Inactive")
+//            zoneDevice.inactive()
+//        }
+//         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('Water')}){
+//            ifDebug("Water Dry")
+//            zoneDevice.dry()
+//        }
+//         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('CarbonMonoxide')}){
+//            ifDebug("CO Clear")
+//            zoneDevice.clear()
+//        }
+//         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('Smoke')}){
+//            ifDebug("Smoke Clear")
+//            zoneDevice.clear()
+//        }
 			else {
             ifDebug("Motion Inactive")
             zoneDevice.inactive()
@@ -692,12 +732,12 @@ def zoneTemp(message){
 		ifDebug("Thermostat Data Check: " + tNumber + ", " + mode + " Mode, Hold temperature = " + hold + ", " + fan + ", Current Temperature = " + cTemp + ", Heat Setpoint = " + hSet + ", Cool Setpoint = " + cSet);
     	tNumber = (tNumber.padLeft(3,'0')); 
 		deviceNetworkId = ElkM1DNI + "_T_" + tNumber;
-		ifDebug("Thermostat Data Check: " + deviceNetworkId);
+//		ifDebug("Thermostat Data Check: " + deviceNetworkId);
 
 if (getChildDevice(deviceNetworkId)!=null){
      zoneDevice = getChildDevice(deviceNetworkId)
          if (zoneDevice.capabilities.find { item -> item.name.startsWith('Thermostat')}){
-            ifDebug("Thermostat Capabil")
+//            ifDebug("Thermostat Capabil")
             zoneDevice.sendEvent(name: "temperature", value: (cTemp))
             zoneDevice.sendEvent(name: "thermostatMode", value: (mode))
             zoneDevice.sendEvent(name: "thermostatFanMode", value: (fan))
@@ -1362,6 +1402,8 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+* 0.1.18
+* Add support for Occupancy Sensors - this will be a work in progress since not sure how to code it
 *
 * 0.1.17
 * Changed devices 'isComponent' to 'False' - this will allow the removal of devices and changing of drivers
