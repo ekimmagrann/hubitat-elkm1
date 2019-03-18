@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.19"  }
+public static String version()      {  return "v0.1.20"  }
 public static boolean isDebug() { return true }
 
 import groovy.transform.Field
@@ -365,15 +365,15 @@ private parse(String message) {
 		            ifDebug("ArmStatuses: " + armStatusesString);
 		            ifDebug("ArmingStatusState: " + armUpStatesString);
 		            ifDebug("AlarmStates: " + alarmStatesString);
-// Removed in order to reduce the logging data
-//  for (i = 1; i <= 8; i++) {
-//	armStatus = elkArmStatuses[armStatusesString.substring(i - 1, i)];
-//	armUpStates = elkArmUpStates[armUpStatesString.substring(i - 1, i)];
-//	alarmStates = elkAlarmStates[alarmStatesString.substring(i - 1, i)];
-//	ifDebug("ArmStatus: " + "Area " + i + " - " + armStatus);
-//	ifDebug("ArmUpState: " + "Area " + i + " - " + armUpStates);
-// 	ifDebug("AlarmState: " + "Area " + i + " - " + alarmStates);
-//  }	
+// Removed in order to reduce the logging data (Added Back)
+  for (i = 1; i <= 8; i++) {
+	armStatus = elkArmStatuses[armStatusesString.substring(i - 1, i)];
+	armUpStates = elkArmUpStates[armUpStatesString.substring(i - 1, i)];
+	alarmStates = elkAlarmStates[alarmStatesString.substring(i - 1, i)];
+	ifDebug("ArmStatus: " + "Area " + i + " - " + armStatus);
+	ifDebug("ArmUpState: " + "Area " + i + " - " + armUpStates);
+ 	ifDebug("AlarmState: " + "Area " + i + " - " + alarmStates);
+  }	
             break; 
          case 'CC': 
             ifDebug("Output Change Update: ");
@@ -1402,6 +1402,9 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.20
+* Added back some code for 'Reply Arming Status Report Data (AS)' to clean up logging
 *
 * 0.1.19
 * Removed some code for 'Reply Arming Status Report Data (AS)' to clean up logging
