@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.20"  }
+public static String version()      {  return "v0.1.21"  }
 public static boolean isDebug() { return true }
 
 import groovy.transform.Field
@@ -54,9 +54,11 @@ metadata {
 		command "RequestZoneDefinitions"
 		command "ZoneStatusRequest"
 		command "TaskActivations"
-		attribute	"Status", "string"
+//		attribute	"Status", "string"
+		attribute	"ArmStatus", "string"
+		attribute	"ArmState", "string"
+		attribute	"AlarmState", "string"
 	}
-
 	preferences {
 		input("ip", "text", title: "IP Address", description: "ip", required: true)
 		input("port", "text", title: "Port", description: "port", required: true)
@@ -366,13 +368,17 @@ private parse(String message) {
 		            ifDebug("ArmingStatusState: " + armUpStatesString);
 		            ifDebug("AlarmStates: " + alarmStatesString);
 // Removed in order to reduce the logging data (Added Back)
-  for (i = 1; i <= 8; i++) {
+  for (i = 1; i <= 1; i++) {
 	armStatus = elkArmStatuses[armStatusesString.substring(i - 1, i)];
 	armUpStates = elkArmUpStates[armUpStatesString.substring(i - 1, i)];
 	alarmStates = elkAlarmStates[alarmStatesString.substring(i - 1, i)];
 	ifDebug("ArmStatus: " + "Area " + i + " - " + armStatus);
 	ifDebug("ArmUpState: " + "Area " + i + " - " + armUpStates);
  	ifDebug("AlarmState: " + "Area " + i + " - " + alarmStates);
+		  sendEvent(name:"ArmStatus", value: armStatus, displayed:false, isStateChange: true)
+			sendEvent(name:"ArmState", value: armUpStates, displayed:false, isStateChange: true)
+			sendEvent(name:"AlarmState", value: alarmStates, displayed:false, isStateChange: true)
+//	          	armReady()
   }	
             break; 
          case 'CC': 
@@ -433,12 +439,12 @@ private parse(String message) {
     		}
 			if(eventCode == '1173') {
 			ifDebug("LogData: " + eventCode + "AREAARMED");
-			sendEvent(name:"Status", value: AREAARMED, displayed:false, isStateChange: true)
+//			sendEvent(name:"Status", value: AREAARMED, displayed:false, isStateChange: true)
 			sendEvent(name: "switch", value: "on")
         	systemArmed()}
 			if(eventCode == '1174') {
 			ifDebug("LogData: " + eventCode + "AREADISARMED");
-			sendEvent(name:"Status", value: AREADISARMED, displayed:false, isStateChange: true)
+//			sendEvent(name:"Status", value: AREADISARMED, displayed:false, isStateChange: true)
 			sendEvent(name: "switch", value: "off")
 			disarming()}
 			if(eventCode == '1175') {
@@ -700,7 +706,7 @@ def outputStatus(message){
 		def ElkM1DNI = device.deviceNetworkId
 		def outputNumber = message.substring(4, 7)
 			def outputState = message.substring(7, 8)
-//			outputState = elkOutputStates[outputState];
+			outputState = elkOutputStates[outputState];
 		deviceNetworkId = ElkM1DNI + "_O_" + outputNumber;
 if (getChildDevice(deviceNetworkId)!=null){
      zoneDevice = getChildDevice(deviceNetworkId)
@@ -851,6 +857,19 @@ def systemArmed(){
 		}
 	}
 }
+
+//def armReady(){
+//	if (state.armUpStates != "Ready To Arm"){
+//		ifDebug("ready to arm")
+//		state.armUpStates = "Ready To Arm"
+//		parent.lockIt()
+//		parent.speakArmed()
+//		if (location.hsmStatus == "disarmed")
+//		{
+//			sendLocationEvent(name: "hsmSetArm", value: "armHome")
+//		}
+//	}
+//}
 
 //Telnet
 def getReTry(Boolean inc){
@@ -1125,8 +1144,8 @@ private ifDebug(msg)
 @Field static final String On = "On"
 
 @Field final Map	elkOutputStates = [
-  0: Off,
-  1: On
+  '0': Off,
+  '1': On
 ]
 
 @Field static final String Fahrenheit = "Fahrenheit"
@@ -1402,6 +1421,10 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.21
+* Updated mapping for output reporting code
+* Changed Reply Arming Status Report Data to work as Area 1 only and to report current states
 *
 * 0.1.20
 * Added back some code for 'Reply Arming Status Report Data (AS)' to clean up logging
