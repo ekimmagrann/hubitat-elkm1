@@ -22,19 +22,20 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.21"  }
+public static String version()      {  return "v0.1.22"  }
 public static boolean isDebug() { return true }
-
 import groovy.transform.Field
 import java.util.regex.Matcher
 import java.util.regex.Pattern;
     
+
 metadata {
 	definition (name: "Elk M1 Driver", namespace: "belk", author: "Mike Magrann") {
 		capability "Actuator"
 		capability "Initialize"
 		capability "Telnet"
 		capability "Thermostat"
+		capability "Switch"
 //		capability "SecurityKeypad"
         command "Disarm"
 		command "ArmAway"
@@ -54,7 +55,6 @@ metadata {
 		command "RequestZoneDefinitions"
 		command "ZoneStatusRequest"
 		command "TaskActivations"
-//		attribute	"Status", "string"
 		attribute	"ArmStatus", "string"
 		attribute	"ArmState", "string"
 		attribute	"AlarmState", "string"
@@ -174,6 +174,7 @@ def ControlOutputOn(output, time){
 	time = (time.padLeft(5,'0'));
 	cmd = cmd + output + time;
     prepMsg2(cmd)
+//	On()
 }
 def ControlOutputOff(output){
  	ifDebug("controlOutputOff()" + output)
@@ -182,6 +183,7 @@ def ControlOutputOff(output){
     output = (output.padLeft(3,'0'));
 	cmd = cmd + output;
     prepMsg2(cmd)
+//	Off()
 }
 def ControlOutputToggle(output){
  	ifDebug("controlOutputToggle()")
@@ -289,6 +291,14 @@ def setCoolingSetpoint(tstat, degrees){
 	cmd = cmd + thermostat + value + element;
     prepMsg2(cmd)
 }
+//def setThermostatSetpoint(tstat, degrees){
+//    def cmd = elkCommands["setHeatingSetpoint"]
+//    thermostat = tstat;
+//    value = degrees;
+//    element = "4";
+//	cmd = cmd + thermostat + value + element;
+//    prepMsg2(cmd)
+//}
 def RequestZoneDefinitions(){
  	ifDebug("request Zone Definitions()")
     def cmd = elkCommands["RequestZoneDefinitions"]
@@ -398,7 +408,6 @@ private parse(String message) {
             ifDebug("LightStatus: "); 
 			def deviceNumber = message.substring(4, 7)
 			def deviceState = message.substring(7, 8)
-//	deviceState = elkOutputStates[deviceState];
 		break;  
          case 'LD': 
 		    def eventCode = message.substring(4, 8)
@@ -483,7 +492,8 @@ private parse(String message) {
 			def KP2 = message.substring(7, 10).toInteger()-40;
 			def TS1 = message.substring(7, 10).toInteger()-60;
 			def TS2 = message.substring(7, 10).toInteger()-60;
-            ifDebug("Temps: " + KP1 + ' - ' + TS1); 
+            ifDebug("Temps: " + KP1 + ' - ' + TS1);
+            break; 
 		case 'SD': 
 			def type = message.substring(4, 6);
 //			type = elkTextDescriptionsTypes[type];
@@ -549,8 +559,16 @@ private parse(String message) {
          case 'ZC': 
 			def zoneNumber = message.substring(4, 7)
 			def zoneStatus = message.substring(7, 8)
-  if (zoneStatus == '0') {
-	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - " + NormalUnconfigured);
+
+  if (zoneStatus == '9') {
+	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + ViolatedOpen);
+	  				zoneOpen(message)
+	              break;
+  }  else {
+  if (zoneStatus == 'B') {
+	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + ViolatedShort);
+//This should actually be zoneClosed but in order to show active status we are using zoneOpen.
+	  				zoneOpen(message)
 	              break;
   } else {
   if (zoneStatus == '1') {
@@ -559,13 +577,17 @@ private parse(String message) {
 	  				zoneClosed(message)
 	              break;
   }  else {
-  if (zoneStatus == '2') {
-	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + NormalEOL);
-	              break;
-  }  else {
   if (zoneStatus == '3') {
 	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + NormalShort);
 	  				zoneClosed(message)
+	              break;
+  }  else {
+  if (zoneStatus == '0') {
+	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - " + NormalUnconfigured);
+	              break;
+  }  else {
+  if (zoneStatus == '2') {
+	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + NormalEOL);
 	              break;
   }  else {
   if (zoneStatus == '5') {
@@ -583,17 +605,6 @@ private parse(String message) {
   }  else {
   if (zoneStatus == '8') {
 			ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + NotUsed);
-	              break;
-  }  else {
-  if (zoneStatus == '9') {
-	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + ViolatedOpen);
-	  				zoneOpen(message)
-	              break;
-  }  else {
-  if (zoneStatus == 'B') {
-	  		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus + " - "  + ViolatedShort);
-//This should actually be zoneClosed but in order to show active status we are using zoneOpen.
-	  				zoneOpen(message)
 	              break;
   }  
 	 else {
@@ -637,13 +648,20 @@ def zoneOpen(message){
      zoneDevice = getChildDevice("${device.deviceNetworkId}_C_${message.substring(substringCount).take(3)}")
     if (zoneDevice == null){
         zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${message.substring(substringCount).take(3)}")
+		ifDebug("Motion Active")
+		zoneDevice.active()
     }
-    log.debug (zoneDevice)
-    if (zoneDevice){
-        if (zoneDevice.capabilities.find { item -> item.name.startsWith('Contact')}){
-            ifDebug("Contact Open")
-            zoneDevice.open()
-		}
+		else
+		{
+		ifDebug("Contact Open")
+		zoneDevice.open()
+    }
+//    log.debug (zoneDevice)
+//    if (zoneDevice){
+//        if (zoneDevice.capabilities.find { item -> item.name.startsWith('Contact')}){
+//            ifDebug("Contact Open")
+//            zoneDevice.open()
+//		}
 //         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('Motion')}){
 //            ifDebug("Motion Active")
 //            zoneDevice.active()
@@ -660,12 +678,12 @@ def zoneOpen(message){
 //            ifDebug("Smoke Detected")
 //            zoneDevice.detected()
 //        }
-		else
-		{
-		ifDebug("Motion Active")
-		zoneDevice.active()
-    }
-}
+//		else
+//		{
+//		ifDebug("Motion Active")
+//		zoneDevice.active()
+//    }
+//}
 }
 def zoneClosed(message){
     def zoneDevice
@@ -673,13 +691,19 @@ def zoneClosed(message){
     zoneDevice = getChildDevice("${device.deviceNetworkId}_C_${message.substring(substringCount).take(3)}")
     if (zoneDevice == null){
         zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${message.substring(substringCount).take(3)}")
+            ifDebug("Motion Inactive")
+            zoneDevice.inactive()
     }
-    if (zoneDevice){
-    	ifDebug(zoneDevice)
-        if (zoneDevice.capabilities.find { item -> item.name.startsWith('Contact')}){
-	     	ifDebug("Contact Closed")
-    		zoneDevice.close()
+			else {
+            ifDebug("Contact Closed")
+            zoneDevice.close()
         }
+//    if (zoneDevice){
+//    	ifDebug(zoneDevice)
+//        if (zoneDevice.capabilities.find { item -> item.name.startsWith('Contact')}){
+//	     	ifDebug("Contact Closed")
+//    		zoneDevice.close()
+//        }
 //         else if (zoneDevice.capabilities.find { item -> item.name.startsWith('Motion')}){
 //            ifDebug("Motion Inactive")
 //            zoneDevice.inactive()
@@ -696,11 +720,11 @@ def zoneClosed(message){
 //            ifDebug("Smoke Clear")
 //            zoneDevice.clear()
 //        }
-			else {
-            ifDebug("Motion Inactive")
-            zoneDevice.inactive()
-        }
-    }
+//			else {
+//            ifDebug("Motion Inactive")
+//            zoneDevice.inactive()
+//        }
+//    }
 }
 def outputStatus(message){
 		def ElkM1DNI = device.deviceNetworkId
@@ -711,7 +735,7 @@ def outputStatus(message){
 if (getChildDevice(deviceNetworkId)!=null){
      zoneDevice = getChildDevice(deviceNetworkId)
          if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}){
-            zoneDevice.sendEvent(name: "switch", value: (outputState))
+            zoneDevice.sendEvent(name: "switch", value: (outputState), isStateChange: true)
          }
 }
 }
@@ -749,7 +773,7 @@ if (getChildDevice(deviceNetworkId)!=null){
             zoneDevice.sendEvent(name: "thermostatFanMode", value: (fan))
             zoneDevice.sendEvent(name: "coolingSetpoint", value: (cSet))
             zoneDevice.sendEvent(name: "heatingSetpoint", value: (hSet))
-            zoneDevice.sendEvent(name: "thermostatSetpoint", value: (00))
+//            zoneDevice.sendEvent(name: "thermostatSetpoint", value: (hSet))
          }
 }
 }
@@ -1215,18 +1239,18 @@ private ifDebug(msg)
 ]
 
 //NEW CODE
-//@Field static final String Off = "Off"
-@Field static final String Heat = "Heat"
-@Field static final String Cool = "Cool"
-@Field static final String Auto = "Auto"
-@Field static final String EmergencyHeat = "Emergency Heat"
+@Field static final String off = "off"
+@Field static final String heat = "heat"
+@Field static final String cool = "cool"
+@Field static final String auto = "auto"
+@Field static final String emergencyHeat = "emergency Heat"
 @Field static final String False = "False"
 @Field static final String True = "True"
 @Field static final String FanAuto = "Fan Auto"
 @Field static final String Fanturnedon = "Fan turned on"
 
 
-@Field final Map 	elkThermostatMode = ['0': Off, '1': Heat, '2': Cool, '3': Auto, '4': EmergencyHeat]
+@Field final Map 	elkThermostatMode = ['0': off, '1': heat, '2': cool, '3': auto, '4': emergencyHeat]
 @Field final Map 	elkThermostatHold = ['0': False, '1': True]
 @Field final Map 	elkThermostatFan = ['0': FanAuto, '1': Fanturnedon]
 
@@ -1269,9 +1293,8 @@ private ifDebug(msg)
 			SetThermostatData: "ts",
 			setHeatingSetpoint: "ts",
 			setCoolingSetpoint: "ts",
+			setThermostatSetpoint: "ts",
 			setThermostatFanMode: "ts",
-			setThermostatMode: "ts",
-			setThermostatMode: "ts",
 			setThermostatMode: "ts",
 			auto: "ts",
 			cool: "ts",
@@ -1421,6 +1444,11 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.22
+* Fixed code to show operating state and thermostat setpoint on dashboard tile
+* Reorder some code to see if it helps with some delay issues
+* Consolidated code for zone open and zone closed to see if it helps with some delay issues (need to check if this has any other impact elsewhere)
 *
 * 0.1.21
 * Updated mapping for output reporting code
