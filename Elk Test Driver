@@ -231,7 +231,7 @@ def createZones(name, text, zoneType){
     def newDevice
 	def ElkM1DNI = device.deviceNetworkId
 //            ifDebug("DNI: " + ElkM1DNI); 
-	def textLabel = "Zone " + name + " - " + text
+	def textLabel = "ZoneT " + name + " - " + text
 	def taskLabel = "Task " + name + " - " + text
 	def outputLabel = "Output " + name + " - " + text
 	def tstatLabel = "Thermostat " + name + " - " + text
