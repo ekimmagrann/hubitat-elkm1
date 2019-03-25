@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.23"  }
+public static String version()      {  return "v0.1.24"  }
 public static boolean isDebug() { return true }
 import groovy.transform.Field
 import java.util.regex.Matcher
@@ -31,12 +31,12 @@ import java.util.regex.Pattern;
 
 metadata {
 	definition (name: "Elk M1 Driver", namespace: "belk", author: "Mike Magrann") {
-	capability "Actuator"
-	capability "Initialize"
-	capability "Telnet"
-	capability "Thermostat"
+		capability "Actuator"
+		capability "Initialize"
+		capability "Telnet"
+		capability "Thermostat"
         command "Disarm"
-	command "ArmAway"
+		command "ArmAway"
         command "ArmHome"
         command "ArmStayInstant"
         command "ArmNight"
@@ -46,17 +46,17 @@ metadata {
         command "ControlOutputOn", ["number","time"]
         command "ControlOutputOff", ["number"]
         command "ControlOutputToggle", ["number"]
-	command "TaskActivation", ["number"]
+		command "TaskActivation", ["number"]
         command "RequestThermostatData"
         command "RequestTemperatureData"
 //This is used to run the zone import script
 //        command "RequestTextDescriptions"
-	command "RequestZoneDefinitions"
-	command "ZoneStatusRequest"
-	command "TaskActivations"
-	attribute "ArmStatus", "string"
-	attribute "ArmState", "string"
-	attribute "AlarmState", "string"
+		command "RequestZoneDefinitions"
+		command "ZoneStatusRequest"
+		command "TaskActivations"
+		attribute	"ArmStatus", "string"
+		attribute	"ArmState", "string"
+		attribute	"AlarmState", "string"
 	}
 	preferences {
 		input("ip", "text", title: "IP Address", description: "ip", required: true)
@@ -403,11 +403,42 @@ private parse(String message) {
 	 else {
     zoneStatus = 'Unknown zone status message';
   }
-		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus);
+////		ifDebug("ZoneChange: " + zoneNumber + " - " + zoneStatus);
 //  }}}}}}
 }}}
 
 		}
+  else {
+		if (commandCode.matches("AM")){      
+            ifDebug("The event is unknown: ");
+  }  else {
+		if (commandCode.matches("AS")){      
+  def armStatusesString = message.substring(4, 12);
+  def armStatus;
+  def armUpStatesString = message.substring(12, 20);
+  def armUpStates;
+  def alarmStatesString = message.substring(20, 28);
+  def alarmStates;
+//		            ifDebug("ArmStatuses: " + armStatusesString);
+//		            ifDebug("ArmingStatusState: " + armUpStatesString);
+//		            ifDebug("AlarmStates: " + alarmStatesString);
+// Removed in order to reduce the logging data (Added Back)
+////  for (i = 1; i <= 1; i++) {
+////	armStatus = elkArmStatuses[armStatusesString.substring(i - 1, i)];
+////	armUpStates = elkArmUpStates[armUpStatesString.substring(i - 1, i)];
+////	alarmStates = elkAlarmStates[alarmStatesString.substring(i - 1, i)];
+	armStatus = elkArmStatuses[armStatusesString.substring(0, 1)];
+	armUpStates = elkArmUpStates[armUpStatesString.substring(0, 1)];
+	alarmStates = elkAlarmStates[alarmStatesString.substring(0, 1)];
+////	ifDebug("ArmStatus: " + "Area " + i + " - " + armStatus);
+////	ifDebug("ArmUpState: " + "Area " + i + " - " + armUpStates);
+//// 	ifDebug("AlarmState: " + "Area " + i + " - " + alarmStates);
+		  sendEvent(name:"ArmStatus", value: armStatus, displayed:false, isStateChange: true)
+			sendEvent(name:"ArmState", value: armUpStates, displayed:false, isStateChange: true)
+			sendEvent(name:"AlarmState", value: alarmStates, displayed:false, isStateChange: true)
+//	          	armReady()
+////  }	
+  }  
 		else {
 	if (commandCode.matches("AR")){      
             ifDebug("AlarmReporting: ");
@@ -416,31 +447,7 @@ private parse(String message) {
 			def area = message.substring(14, 16)
 			def zone = message.substring(16, 19)
 			def telIp = message.substring(19, 20)
-	}  else {
-		if (commandCode.matches("AS")){      
-  def armStatusesString = message.substring(4, 12);
-  def armStatus;
-  def armUpStatesString = message.substring(12, 20);
-  def armUpStates;
-  def alarmStatesString = message.substring(20, 28);
-  def alarmStates;
-		            ifDebug("ArmStatuses: " + armStatusesString);
-		            ifDebug("ArmingStatusState: " + armUpStatesString);
-		            ifDebug("AlarmStates: " + alarmStatesString);
-// Removed in order to reduce the logging data (Added Back)
-  for (i = 1; i <= 1; i++) {
-	armStatus = elkArmStatuses[armStatusesString.substring(i - 1, i)];
-	armUpStates = elkArmUpStates[armUpStatesString.substring(i - 1, i)];
-	alarmStates = elkAlarmStates[alarmStatesString.substring(i - 1, i)];
-	ifDebug("ArmStatus: " + "Area " + i + " - " + armStatus);
-	ifDebug("ArmUpState: " + "Area " + i + " - " + armUpStates);
- 	ifDebug("AlarmState: " + "Area " + i + " - " + alarmStates);
-		  sendEvent(name:"ArmStatus", value: armStatus, displayed:false, isStateChange: true)
-			sendEvent(name:"ArmState", value: armUpStates, displayed:false, isStateChange: true)
-			sendEvent(name:"AlarmState", value: alarmStates, displayed:false, isStateChange: true)
-//	          	armReady()
-  }	
-  }
+	}
   else {
 		if (commandCode.matches("CC")){      
             ifDebug("Output Change Update: ");
@@ -634,7 +641,7 @@ private parse(String message) {
   }
 }
 	  
-		}}}}}}}}}}}}}}
+  }}}}}}}}}}}}}}}
 
 // Zone Status
 def zoneOpen(message){
@@ -663,11 +670,11 @@ def zoneClosed(message){
     zoneDevice = getChildDevice("${device.deviceNetworkId}_C_${message.substring(substringCount).take(3)}")
     if (zoneDevice == null){
         zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${message.substring(substringCount).take(3)}")
-            ifDebug("Motion Inactive")
+//            ifDebug("Motion Inactive")
             zoneDevice.inactive()
     }
 			else {
-            ifDebug("Contact Closed")
+//            ifDebug("Contact Closed")
             zoneDevice.close()
         }
 }
@@ -1387,6 +1394,10 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.24
+* Rerouted some code for efficiency
+* Turned off some of the extra debugging
 *
 * 0.1.23
 * Outputs are now functional with Rule Machine
