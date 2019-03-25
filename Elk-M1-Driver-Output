@@ -19,18 +19,12 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.1"  }
+public static String version()      {  return "v0.1.2"  }
 public static boolean isDebug() { return true }
 
-import groovy.transform.Field
-import java.util.regex.Matcher
-import java.util.regex.Pattern;
-    
 metadata {
 	definition (name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
 		capability "Switch"
-//		attribute	"Switch", "ENUM"
-//		switch - ENUM ["on", "off"]
 	}
 }
 
@@ -39,19 +33,22 @@ def on(){
 	substringCount = output.length()-3
 	output = output.substring(substringCount).take(3)
 	time = '00000'
-	getParent().ControlOutputOn(output, time)
+	parent.ControlOutputOn(output, time)
 }
 def off(){
 	output = device.deviceNetworkId
 	substringCount = output.length()-3
 	output = output.substring(substringCount).take(3)
-	getParent().ControlOutputOff(output)
+	parent.ControlOutputOff(output)
 }
 
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
-* 
+*
+* 0.1.2
+* Cleaned up code
+*
 * 0.1.1
 * New child driver to Elk M1 Outputs
 *
