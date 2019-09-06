@@ -19,23 +19,33 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.2"  }
-public static boolean isDebug() { return true }
+public static String version() { return "v0.1.3" }
+//public static boolean isDebug() { return true }
 
 metadata {
 	definition (name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
-		capability "Switch"
+	capability "Switch"
+	capability "Momentary"
 	}
 }
 
-def on(){
+def push() {
+	output = device.deviceNetworkId
+	substringCount = output.length()-3
+	output = output.substring(substringCount).take(3)
+	time = '00001'
+	parent.ControlOutputOn(output, time)
+}
+
+def on() {
 	output = device.deviceNetworkId
 	substringCount = output.length()-3
 	output = output.substring(substringCount).take(3)
 	time = '00000'
 	parent.ControlOutputOn(output, time)
 }
-def off(){
+
+def off() {
 	output = device.deviceNetworkId
 	substringCount = output.length()-3
 	output = output.substring(substringCount).take(3)
@@ -45,6 +55,9 @@ def off(){
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.3
+* Added Monentary capability
 *
 * 0.1.2
 * Cleaned up code

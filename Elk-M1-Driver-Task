@@ -20,7 +20,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.2"  }
+public static String version() { return "v0.1.3" }
 //public static boolean isDebug() { return true }
 
 //import groovy.transform.Field
@@ -29,22 +29,32 @@ public static String version()      {  return "v0.1.2"  }
     
 metadata {
 	definition (name: "Elk M1 Driver Tasks", namespace: "belk", author: "Mike Magrann") {
-		capability "Switch"
+	capability "Switch"
+	capability "Momentary"
 	}
-}	
+}
 
-def on(){
+def push() {
 	task = device.deviceNetworkId
 	substringCount = task.length()-3
 	task = task.substring(substringCount).take(3)
 	getParent().TaskActivation(task)
 }
-def off(){
+
+def on() {
+    push()
+}
+
+def off() {
+	sendEvent(name: "switch", value: "off", isStateChange: true)
 }
 
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.3
+* Added Momentary capability
 *
 * 0.1.2
 * Changed TaskActivations to TaskActivation

@@ -18,7 +18,7 @@
 ***********************************************************************************************************************/
 //Adding thermostat support
 
-public static String version()      {  return "v0.1.5"  }
+public static String version()      {  return "v0.1.6"  }
 
 definition(
     name: "Elk M1 Application",
@@ -357,26 +357,11 @@ def importZones(){
 }
 
 def createZone(){
-    ifDebug("Starting validation of ${zoneName} ZoneType: ${zoneType}")
-    String formatted = String.format("%03d", zoneNumber)
-    String formatted2 = String.format("%03d", zoneNumber)
-   String deviceNetworkId
-    if (zoneType == "05"){
-	    deviceNetworkId = state.ElkM1DNI + "_K_" + formatted
-    }else    
-    if (zoneType == "04"){
-	    deviceNetworkId = state.ElkM1DNI + "_O_" + formatted
-    }else    
-    if (zoneType == "11"){
-	    deviceNetworkId = state.ElkM1DNI + "_T_" + formatted2
-    }else    
-    if (zoneType == "00"){
-	    deviceNetworkId = state.ElkM1DNI + "_C_" + formatted
-    }else{
-        deviceNetworkId = state.ElkM1DNI + "_M_" + formatted
-    }
-    ifDebug("Entered zoneNumber: ${zoneNumber} formatted as: ${formatted}")
-    getChildDevice(state.ElkM1DNI).createZone([zoneName: zoneName, deviceNetworkId: deviceNetworkId, zoneType: zoneType])
+    ifDebug("Starting validation of ${zoneName} ZoneType: ${zoneType} ZoneNumber: ${zoneNumber}")
+	String formatted = String.format("%03d", zoneNumber)
+	def zoneNumberFormatted = formatted
+	def zoneText
+   	getChildDevice(state.ElkM1DNI).createZone([zoneNumber: zoneNumberFormatted, zoneName: zoneName, zoneType: zoneType, zoneText: zoneText])
     state.creatingZone = false;
 }
 
@@ -596,6 +581,9 @@ private removeChildDevices(delete) {
 /***********************************************************************************************************************
 *
 * Release Notes
+*
+* Version: 0.1.6
+* Moved some zone creation code to Elk Driver
 *
 * Version: 0.1.5
 * Added support for manual inclusion of Elk M1 outputs and tasks
