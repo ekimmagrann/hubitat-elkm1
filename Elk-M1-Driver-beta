@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.25" }
+public static String version() { return "v0.1.26" }
 public static boolean isDebug() { return true }
 import groovy.transform.Field
 //import java.util.regex.Matcher
@@ -392,7 +392,6 @@ def sendMsg(msg) {
 //Elk M1 Event Receipt Lines
 private parse(String message) {
 	ifDebug("Parsing Incoming message: " + message)
-	log.info "Parsing Incoming message: ${message}"
 
 	switch (message.substring(2, 4)) {
 		case "ZC":
