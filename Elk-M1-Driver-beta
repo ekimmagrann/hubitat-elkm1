@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.26" }
+public static String version() { return "v0.1.27" }
 public static boolean isDebug() { return true }
 import groovy.transform.Field
 //import java.util.regex.Matcher
@@ -52,7 +52,8 @@ metadata {
 //This is used to run the zone import script
 //		command "RequestTextDescriptions"
 		command "RequestZoneDefinitions"
-		command "ZoneStatusRequest"
+		command "RequestZoneStatus"
+		command "RequestOutputStatus"
 		command "TaskActivations"
 		attribute	"ArmStatus", "string"
 		attribute	"ArmState", "string"
@@ -83,7 +84,7 @@ def initialize() {
 	telnetClose() 
 	try {
 		//open telnet connection
-		telnetConnect([termChars:[13,10]], ip, 2101, null, null)
+		telnetConnect([termChars:[13,10]], ip, port.toInteger(), null, null)
 		//give it a chance to start
 		pauseExecution(1000)
 		ifDebug("Telnet connection to Elk M1 established")
@@ -170,7 +171,10 @@ def RequestTextDescriptions(deviceType) {
 	RequestZoneDefinitions()
 	pauseExecution(50)
 	String cmd = elkCommands["RequestTextDescriptions"]
-	for (i = 1; i <= 208; i++) {
+	int maxDev = 208;
+	if (deviceType == "05") maxDev = 32
+	if (deviceType == "11") maxDev = 16
+	for (i = 1; i <= maxDev; i++) {
 		number = (i.toString())
 		number = (number.padLeft(3,'0'))
 		String msg = cmd + deviceType + number + "00"
@@ -340,9 +344,15 @@ def RequestZoneDefinitions() {
 	prepMsg2(cmd)
 }
 
-def ZoneStatusRequest() {
- 	ifDebug("zoneStatusRequest()")
-	String cmd = elkCommands["ZoneStatusRequest"]
+def RequestZoneStatus() {
+ 	ifDebug("RequestZoneStatus()")
+	String cmd = elkCommands["RequestZoneStatus"]
+	prepMsg2(cmd)
+}
+
+def RequestOutputStatus() {
+ 	ifDebug("RequestOutputStatus()")
+	String cmd = elkCommands["RequestOutputStatus"]
 	prepMsg2(cmd)
 }
 
@@ -416,7 +426,7 @@ private parse(String message) {
 			//alarmReporting(message);
 			break;
 		case "CS":
-			//outputStatus(message);
+			outputStatus(message);
 			break;
 		case "DS":
 			//lightingDeviceStatus(message);
@@ -443,10 +453,10 @@ private parse(String message) {
 			// Ethernet Test
 			break;
 		case "ZD":
-			//zoneDefinitionReport(message);
+			zoneDefinitionReport(message);
 			break;
 		case "ZS":
-			//zoneStatusReport(message);
+			zoneStatusReport(message);
 			break;
 		default:
 			ifDebug("The command is unknown");
@@ -572,21 +582,25 @@ def outputChange(message) {
 	String outputNumber = message.substring(4, 7)
 	String outputState = (message.substring(7, 8) == "1") ? "on" : "off"
 	def zoneDevice = getChildDevice("${device.deviceNetworkId}_O_${outputNumber}")
-	ifDebug("Output Change Update: ${outputNumber} - ${outputState}")
 	if (zoneDevice != null) {
+		ifDebug("Output Change Update: ${outputNumber} - ${outputState}")
 //		if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}) {
 			zoneDevice.sendEvent(name: "switch", value: outputState, isStateChange: true)
-			log.info "${zoneDevice.label.trim()} was turned ${outputState}"
+			if (zoneDevice.hasCommand("writeLog")) zoneDevice.writeLog(outputState)
 //		}
 	}
 }
 
 def outputStatus(message) {
-	ifDebug("ControlOutputStatusReport: ")
 	String outputString = message.substring(4, 212)
 	String outputState
 	for (i = 1; i <= 208; i++) {
-		outputState = elkOutputStates[outputString.substring(i - 1, i)]
+		outputState = outputString.substring(i - 1, i)
+		//ifDebug("OutputStatus: Output " + i + " - " + elkOutputStates[outputState])
+		outputChange("    ${String.format("%03d", i)}" + outputState)
+		if (i <= 32) {
+			taskStatus([Message: "    ${String.format("%03d", i)}", State: "off"])
+		}
 	}
 }
 
@@ -703,10 +717,10 @@ def zoneStatusReport(message) {
 	String zoneString = message.substring(4, 212)
 	String zoneStatus
 	for (i = 1; i <= 208; i++) {
-//		message['zone' + i] = elkZoneStatuses[message.substring(i - 1, i)]
-		zoneStatus = elkZoneStatuses[zoneString.substring(i - 1, i)]
-		if (zoneStatus != null && zoneStatus != NormalUnconfigured) {
-			ifDebug("ZoneStatus: Zone " + i + " - " + zoneStatus)
+		zoneStatus = zoneString.substring(i - 1, i)
+		if (zoneStatus != null && zoneStatus != "0") {
+			//ifDebug("ZoneStatus: Zone " + i + " - " + elkZoneStatuses[zoneStatus])
+			zoneChange("    " + String.format("%03d", i) + zoneStatus)
 		}
 	}
 }
@@ -721,74 +735,94 @@ def zoneViolated(message) {
 	if (zoneDevice == null) { // For backwards capability
 		zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${message.substring(substringCount).take(3)}")
 	}
-
-	def capList = zoneDevice?.capabilities
-	if (capList != null) {
-		if (capList.find { it.name == "ContactSensor" } != null) {
-			zoneDevice.sendEvent(name: "contact", value: "open")
-//			ifDebug("Contact Open")
-//			zoneDevice.open()
+	
+	if (zoneDevice != null) {
+		def cmdList = zoneDevice.supportedCommands
+		if (cmdList.find { it.name == "open" } != null) {
+			zoneDevice.open()
 		}
-		else if (capList.find { it.name == "MotionSensor" } != null) {
-			zoneDevice.sendEvent(name: "motion", value: "active")
-//			ifDebug("Motion Active")
-//			zoneDevice.active()
+		else if (cmdList.find { it.name == "active" } != null) {
+			zoneDevice.active()
 		}
-		else if (capList.find { it.name == "SmokeDetector" } != null) {
-			zoneDevice.sendEvent(name: "smoke", value: "detected")
-//			ifDebug("Smoke Detected")
+		else if (cmdList.find { it.name == "on" } != null) {
+			zoneDevice.on()
 		}
-		else if (capList.find { it.name == "CarbonMonoxideDetector" } != null) {
-			zoneDevice.sendEvent(name: "carbonMonoxide", value: "detected")
-//			ifDebug("Carbon Monoxide Detected")
+		else if (cmdList.find { it.name == "arrived" } != null) {
+			zoneDevice.arrived()
 		}
-		else if (capList.find { it.name == "WaterSensor" } != null) {
-			zoneDevice.sendEvent(name: "water", value: "wet")
-//			ifDebug("Water Wet")
+		else if (cmdList.find { it.name == "detected" } != null) {
+			zoneDevice.detected()
 		}
-		else if (capList.find { it.name == "TamperAlert" } != null) {
-			zoneDevice.sendEvent(name: "tamper", value: "detected")
-//			ifDebug("Tamper Alert Detected")
-		}
-		else if (capList.find { it.name == "AccelerationSensor" } != null) {
-			zoneDevice.sendEvent(name: "acceleration", value: "active")
-//			ifDebug("Acceleration Sensor Active")
-		}
-		else if (capList.find { it.name == "Beacon" } != null) {
-			zoneDevice.sendEvent(name: "presence", value: "present")
-//			ifDebug("Beacon Present")
-		}
-		else if (capList.find { it.name == "PresenceSensor" } != null) {
-			zoneDevice.sendEvent(name: "presence", value: "present")
-//			ifDebug("Presence Present")
-		}
-		else if (capList.find { it.name == "RelaySwitch" } != null) {
-			zoneDevice.sendEvent(name: "switch", value: "on")
-//			ifDebug("Relay Switch On")
-		}
-		else if (capList.find { it.name == "ShockSensor" } != null) {
-			zoneDevice.sendEvent(name: "shock", value: "detected")
-//			ifDebug("Shock Sensor Detected")
-		}
-		else if (capList.find { it.name == "SleepSensor" } != null) {
-			zoneDevice.sendEvent(name: "sleeping", value: "sleeping")
-//			ifDebug("Sleep Sensor Sleeping")
-		}
-		else if (capList.find { it.name == "SoundSensor" } != null) {
-			zoneDevice.sendEvent(name: "sound", value: "detected")
-//			ifDebug("Sound Sensor Detected")
-		}
-		else if (capList.find { it.name == "Switch" } != null) {
-			zoneDevice.sendEvent(name: "switch", value: "on")
-//			ifDebug("Switch On")
-		}
-		else if (capList.find { it.name == "TouchSensor" } != null) {
-			zoneDevice.sendEvent(name: "touch", value: "touched")
-//			ifDebug("Touch Touched")
-		}
-		else if (capList.find { it.name == "Valve" } != null) {
-			zoneDevice.sendEvent(name: "valve", value: "open")
-//			ifDebug("Valve Open")
+		else {
+			def capList = zoneDevice.capabilities
+			if (capList.find { it.name == "ContactSensor" } != null) {
+				zoneDevice.sendEvent(name: "contact", value: "open")
+//				ifDebug("Contact Open")
+			}
+			else if (capList.find { it.name == "MotionSensor" } != null) {
+				zoneDevice.sendEvent(name: "motion", value: "active")
+//				ifDebug("Motion Active")
+			}
+			else if (capList.find { it.name == "SmokeDetector" } != null) {
+				zoneDevice.sendEvent(name: "smoke", value: "detected")
+//				ifDebug("Smoke Detected")
+			}
+			else if (capList.find { it.name == "CarbonMonoxideDetector" } != null) {
+				zoneDevice.sendEvent(name: "carbonMonoxide", value: "detected")
+//				ifDebug("Carbon Monoxide Detected")
+			}
+			else if (capList.find { it.name == "WaterSensor" } != null) {
+				zoneDevice.sendEvent(name: "water", value: "wet")
+//				ifDebug("Water Wet")
+			}
+			else if (capList.find { it.name == "TamperAlert" } != null) {
+				zoneDevice.sendEvent(name: "tamper", value: "detected")
+//				ifDebug("Tamper Alert Detected")
+			}
+			else if (capList.find { it.name == "AccelerationSensor" } != null) {
+				zoneDevice.sendEvent(name: "acceleration", value: "active")
+//				ifDebug("Acceleration Sensor Active")
+			}
+			else if (capList.find { it.name == "Beacon" } != null) {
+				zoneDevice.sendEvent(name: "presence", value: "present")
+//				ifDebug("Beacon Present")
+			}
+			else if (capList.find { it.name == "GarageDoorControl" } != null) {
+				zoneDevice.sendEvent(name: "door", value: "open")
+//				ifDebug("GarageDoorControl Open")
+			}
+			else if (capList.find { it.name == "PresenceSensor" } != null) {
+				zoneDevice.sendEvent(name: "presence", value: "present")
+//				ifDebug("Presence Present")
+			}
+			else if (capList.find { it.name == "RelaySwitch" } != null) {
+				zoneDevice.sendEvent(name: "switch", value: "on")
+//				ifDebug("Relay Switch On")
+			}
+			else if (capList.find { it.name == "ShockSensor" } != null) {
+				zoneDevice.sendEvent(name: "shock", value: "detected")
+//				ifDebug("Shock Sensor Detected")
+			}
+			else if (capList.find { it.name == "SleepSensor" } != null) {
+				zoneDevice.sendEvent(name: "sleeping", value: "sleeping")
+//				ifDebug("Sleep Sensor Sleeping")
+			}
+			else if (capList.find { it.name == "SoundSensor" } != null) {
+				zoneDevice.sendEvent(name: "sound", value: "detected")
+//				ifDebug("Sound Sensor Detected")
+			}
+			else if (capList.find { it.name == "Switch" } != null) {
+				zoneDevice.sendEvent(name: "switch", value: "on")
+//				ifDebug("Switch On")
+			}
+			else if (capList.find { it.name == "TouchSensor" } != null) {
+				zoneDevice.sendEvent(name: "touch", value: "touched")
+//				ifDebug("Touch Touched")
+			}
+			else if (capList.find { it.name == "Valve" } != null) {
+				zoneDevice.sendEvent(name: "valve", value: "open")
+//				ifDebug("Valve Open")
+			}
 		}
 	}
 }
@@ -802,69 +836,89 @@ def zoneNormal(message) {
 	if (zoneDevice == null) { // For backwards capability
 		zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${message.substring(substringCount).take(3)}")
 	}
-	def capList = zoneDevice?.capabilities
-	if (capList != null) {
-		if (capList.find { it.name == "ContactSensor" } != null) {
-			zoneDevice.sendEvent(name: "contact", value: "closed")
-//			ifDebug("Contact Closed")
-//			zoneDevice.close()
+	if (zoneDevice != null) {
+		def cmdList = zoneDevice.supportedCommands
+		if (cmdList.find { it.name == "close" } != null) {
+			zoneDevice.close()
 		}
-		else if (capList.find { it.name == "MotionSensor" } != null) {
-			zoneDevice.sendEvent(name: "motion", value: "inactive")
-//			ifDebug("Motion Inactive")
-//			zoneDevice.inactive()
+		if (cmdList.find { it.name == "inactive" } != null) {
+			zoneDevice.inactive()
 		}
-		else if (capList.find { it.name == "SmokeDetector" } != null) {
-			zoneDevice.sendEvent(name: "smoke", value: "clear")
-//			ifDebug("Smoke Clear")
+		if (cmdList.find { it.name == "off" } != null) {
+			zoneDevice.off()
 		}
-		else if (capList.find { it.name == "CarbonMonoxideDetector" } != null) {
-			zoneDevice.sendEvent(name: "carbonMonoxide", value: "clear")
-//			ifDebug("Carbon Monoxide Clear")
+		else if (cmdList.find { it.name == "departed" } != null) {
+			zoneDevice.departed()
 		}
-		else if (capList.find { it.name == "WaterSensor" } != null) {
-			zoneDevice.sendEvent(name: "water", value: "dry")
-//			ifDebug("Water Dry")
+		else if (cmdList.find { it.name == "clear" } != null) {
+			zoneDevice.clear()
 		}
-		else if (capList.find { it.name == "TamperAlert" } != null) {
-			zoneDevice.sendEvent(name: "tamper", value: "clear")
-//			ifDebug("Tamper Clear")
-		}
-		else if (capList.find { it.name == "AccelerationSensor" } != null) {
-			zoneDevice.sendEvent(name: "acceleration", value: "inactive")
-//			ifDebug("Acceleration Sensor Inactive")
-		}
-		else if (capList.find { it.name == "Beacon" } != null) {
-			zoneDevice.sendEvent(name: "presence", value: "not present")
-//			ifDebug("Beacon Not Present")
-		}
-		else if (capList.find { it.name == "PresenceSensor" } != null) {
-			zoneDevice.sendEvent(name: "presence", value: "not present")
-//			ifDebug("Presence Not Present")
-		}
-		else if (capList.find { it.name == "RelaySwitch" } != null) {
-			zoneDevice.sendEvent(name: "switch", value: "off")
-//			ifDebug("Relay Switch Off")
-		}
-		else if (capList.find { it.name == "ShockSensor" } != null) {
-			zoneDevice.sendEvent(name: "shock", value: "clear")
-//			ifDebug("Shock Sensor Clear")
-		}
-		else if (capList.find { it.name == "SleepSensor" } != null) {
-			zoneDevice.sendEvent(name: "sleeping", value: "not sleeping")
-//			ifDebug("Sleep Sensor Not Sleeping")
-		}
-		else if (capList.find { it.name == "SoundSensor" } != null) {
-			zoneDevice.sendEvent(name: "sound", value: "not detected")
-//			ifDebug("Sound Sensor Not Detected")
-		}
-		else if (capList.find { it.name == "Switch" } != null) {
-			zoneDevice.sendEvent(name: "switch", value: "off")
-//			ifDebug("Switch Off")
-		}
-		else if (capList.find { it.name == "Valve" } != null) {
-			zoneDevice.sendEvent(name: "valve", value: "closed")
-//			ifDebug("Valve Closed")
+		else {
+			def capList = zoneDevice?.capabilities
+			if (capList.find { it.name == "ContactSensor" } != null) {
+				zoneDevice.sendEvent(name: "contact", value: "closed")
+//				ifDebug("Contact Closed")
+			}
+			else if (capList.find { it.name == "MotionSensor" } != null) {
+				zoneDevice.sendEvent(name: "motion", value: "inactive")
+//				ifDebug("Motion Inactive")
+			}
+			else if (capList.find { it.name == "SmokeDetector" } != null) {
+				zoneDevice.sendEvent(name: "smoke", value: "clear")
+//				ifDebug("Smoke Clear")
+			}
+			else if (capList.find { it.name == "CarbonMonoxideDetector" } != null) {
+				zoneDevice.sendEvent(name: "carbonMonoxide", value: "clear")
+//				ifDebug("Carbon Monoxide Clear")
+			}
+			else if (capList.find { it.name == "WaterSensor" } != null) {
+				zoneDevice.sendEvent(name: "water", value: "dry")
+//				ifDebug("Water Dry")
+			}
+			else if (capList.find { it.name == "TamperAlert" } != null) {
+				zoneDevice.sendEvent(name: "tamper", value: "clear")
+//				ifDebug("Tamper Clear")
+			}
+			else if (capList.find { it.name == "AccelerationSensor" } != null) {
+				zoneDevice.sendEvent(name: "acceleration", value: "inactive")
+//				ifDebug("Acceleration Sensor Inactive")
+			}
+			else if (capList.find { it.name == "Beacon" } != null) {
+				zoneDevice.sendEvent(name: "presence", value: "not present")
+//				ifDebug("Beacon Not Present")
+			}
+			else if (capList.find { it.name == "GarageDoorControl" } != null) {
+				zoneDevice.sendEvent(name: "door", value: "closed")
+//				ifDebug("GarageDoorControl Closed")
+			}
+			else if (capList.find { it.name == "PresenceSensor" } != null) {
+				zoneDevice.sendEvent(name: "presence", value: "not present")
+//				ifDebug("Presence Not Present")
+			}
+			else if (capList.find { it.name == "RelaySwitch" } != null) {
+				zoneDevice.sendEvent(name: "switch", value: "off")
+//				ifDebug("Relay Switch Off")
+			}
+			else if (capList.find { it.name == "ShockSensor" } != null) {
+				zoneDevice.sendEvent(name: "shock", value: "clear")
+//				ifDebug("Shock Sensor Clear")
+			}
+			else if (capList.find { it.name == "SleepSensor" } != null) {
+				zoneDevice.sendEvent(name: "sleeping", value: "not sleeping")
+//				ifDebug("Sleep Sensor Not Sleeping")
+			}
+			else if (capList.find { it.name == "SoundSensor" } != null) {
+				zoneDevice.sendEvent(name: "sound", value: "not detected")
+//				ifDebug("Sound Sensor Not Detected")
+			}
+			else if (capList.find { it.name == "Switch" } != null) {
+				zoneDevice.sendEvent(name: "switch", value: "off")
+//				ifDebug("Switch Off")
+			}
+			else if (capList.find { it.name == "Valve" } != null) {
+				zoneDevice.sendEvent(name: "valve", value: "closed")
+//				ifDebug("Valve Closed")
+			}
 		}
 	}
 }
@@ -872,12 +926,17 @@ def zoneNormal(message) {
 def taskStatus(data) {
 	String taskNumber = data.Message.substring(4, 7)
 	def zoneDevice = getChildDevice(device.deviceNetworkId + "_K_" + taskNumber)
-	ifDebug("TaskChange: ${taskNumber} - ${data.State}")
+	ifDebug("Task Change Update: ${taskNumber} - ${data.State}")
 	if (zoneDevice != null) {
 //		if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}) {
-			zoneDevice.sendEvent(name: "switch", value: data.State, isStateChange: true)
-			if (data.State == "on") {
-				log.info "${zoneDevice.label.trim()} was activated"
+			if (data.State == "off") {
+				zoneDevice.sendEvent(name: "switch", value: data.State)
+			}
+			else {
+				zoneDevice.sendEvent(name: "switch", value: data.State, isStateChange: true)
+			}
+			if (data.State == "on" && zoneDevice.hasCommand("writeLog")) {
+				zoneDevice.writeLog()
 			}
 //		}
 	}
@@ -902,10 +961,13 @@ def createZone(zoneInfo){
 		 		addChildDevice("hubitat", "Virtual Motion Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
 				def newDevice = getChildDevice(deviceNetworkId)
 				newDevice.updateSetting("autoInactive",[type:"enum", value:0])
+				newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
 			}
 			else {
 				log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Contact"
 				addChildDevice("hubitat", "Virtual Contact Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+				def newDevice = getChildDevice(deviceNetworkId)
+				newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
 			}
 		}
 		else {
@@ -1424,7 +1486,7 @@ private ifDebug(msg)
 			Zonebypassrequest: "zb",
 			RequestZoneDefinitions: "zd",
 			Zonepartitionrequest: "zp",
-			ZoneStatusRequest: "zs",
+			RequestZoneStatus: "zs",
 			RequestZoneanalogvoltage: "zv",
 			SetThermostatData: "ts",
 			setHeatingSetpoint: "ts",
@@ -1443,6 +1505,7 @@ private ifDebug(msg)
 			ControlOutputOn: "cn",
 			ControlOutputOff: "cf",
 			ControlOutputToggle: "ct",
+			RequestOutputStatus: "cs"
 ]
 
 @Field static final String Disabled = "Disabled"
@@ -1568,6 +1631,12 @@ private ifDebug(msg)
 *
 * Release Notes (see Known Issues Below)
 *
+* 0.1.27
+* You can now change the port on the main device page.  You must click "Initialize" after you save preferences to take effect
+* Changed info logging to only happen if Enable descriptionText logging is turned on the device
+* Reenabled Request Zone Definition and Request Zone Status
+* Added Request Output Status
+*
 * 0.1.26
 * Added info logging when output or task status changes or Arm Mode changes
 * Added switch capability to main Elk M1 driver
@@ -1672,13 +1741,10 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 *Feature Request & Known Issues
-* I - Port is hard coded to 2101
 * I - Area is hard coded to 1
 * F - Import Zone data from Elk
-* F - Arm and Disarm from dashboard
 * F - Controls for thermostat 1 (mulitple)
 * F - Activate elk task by name (via dashboard button)
-* F - Output support
 * F - Lighting support (this is low priority for me since HE is handling my Zwave lights)
 * F - Thermostat setup page (currenty uses the zone map page)
 * I - Fan Circulate, emergency heat and set schedule not supported

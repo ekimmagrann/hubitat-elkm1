@@ -18,7 +18,7 @@
 ***********************************************************************************************************************/
 //Adding thermostat support
 
-public static String version()      {  return "v0.1.6"  }
+public static String version()      {  return "v0.1.7"  }
 
 definition(
     name: "Elk M1 Application",
@@ -48,7 +48,7 @@ preferences {
 def mainPage() {
     ifDebug("Showing mainPage")
 	state.isDebug = isDebug
-	
+	//state.allZones = null - CC
 	return dynamicPage(name: "mainPage", title: "", install: false, uninstall: true) {
         if(!state.elkM1IntegrationInstalled && getChildDevices().size() == 0) {
             section("Define your Elk M1 device") {
@@ -65,7 +65,7 @@ def mainPage() {
                 href (name: "zoneMapsPage", title: "Devices", 
                 description: "Create Virtual Devices and Map them to Existing Zones, Outputs, Tasks and/or Thermostats in your Elk M1 setup",
                 page: "zoneMapsPage")	
-//            }
+            }
 			
 //			section("<h1>Outputs</h1>") {
 //                href (name: "zoneMapsPage", title: "Outputs", 
@@ -74,7 +74,7 @@ def mainPage() {
 //                href (name: "zoneMapsPage", title: "Tasks", 
 //                description: "Create Virtual Switches and Map them to Existing Tasks in your Elk M1 setup",
 //                page: "outputMapsPage")
-            }
+//          }
 			
 //			section("<h1>Notifications</h1>") {
 //                href (name: "notificationPage", title: "Notifications", 
@@ -221,8 +221,7 @@ def zoneMapsPage() {
         }
         
        section("<h2>Existing Devices</h2>"){
-       		def deviceList = ""
-            getChildDevice(state.ElkM1DNI).getChildDevices().each{
+            getChildDevice(state.ElkM1DNI).getChildDevices().sort { it.deviceNetworkId }.each{
                 href (name: "editZoneMapPage", title: "${it.label}", 
                 description: "Device Details",
                 params: [deviceNetworkId: it.deviceNetworkId],
@@ -241,7 +240,7 @@ def defineZoneMap() {
            	input "zoneName", "text", title: "Device Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
             input "zoneNumber", "number", title: "Which Device 1-208", required: true, multiple: false, defaultValue: 001, range: "1..208", submitOnChange: false
             input "zoneType", "enum", title: "Motion, Contact, Output, Task or Thermostat Device?", required: true, multiple: false, 
-                options: [['00':"Contact"],['01':"Motion"],['11':"Thermostat"],['04':"Output"],['05':"Task"]]
+                options: [['00':"Zone"],['11':"Thermostat"],['04':"Output"],['05':"Task"]]
         }
 	}
 }
@@ -255,17 +254,14 @@ def defineZoneMapImport() {
 		paragraph "Create a Map for a zone in Elk M1"
 		input "deviceType", "enum", title: "Select Device Type", required: true, multiple: false, 
 			options: [['00':"Zones"],['11':"Thermostat"],['04':"Output"],['05':"Task"]]
-//			state.deviceType = deviceType;
+		}
 	}
-	}
-
-//	importZones(deviceType)
 }
 
 def editZoneMapPage(message) {
     ifDebug("Showing editZoneMapPage")
     ifDebug("editing ${message.deviceNetworkId}")
-    state.allZones = getChildDevice(state.ElkM1DNI).getChildDevices()
+    //state.allZones = getChildDevice(state.ElkM1DNI).getChildDevices() - CC
     def zoneDevice = getChildDevice(state.ElkM1DNI).getChildDevice(message.deviceNetworkId)
     def paragraphText = ""
     state.editedZoneDNI = message.deviceNetworkId;
@@ -581,6 +577,9 @@ private removeChildDevices(delete) {
 /***********************************************************************************************************************
 *
 * Release Notes
+*
+* Version: 0.1.7
+* Combined Zone Type creation "Contact" and "Motion" and made "Zone" to fix a zone creation bug.
 *
 * Version: 0.1.6
 * Moved some zone creation code to Elk Driver
