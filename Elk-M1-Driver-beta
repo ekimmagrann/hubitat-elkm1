@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.27" }
+public static String version() { return "v0.1.28" }
 public static boolean isDebug() { return true }
 import groovy.transform.Field
 //import java.util.regex.Matcher
@@ -35,6 +35,7 @@ metadata {
 		capability "Initialize"
 		capability "Telnet"
 		capability "Thermostat"
+		capability "ContactSensor"
 		command "Disarm"
 		command "ArmAway"
 		command "ArmHome"
@@ -59,6 +60,8 @@ metadata {
 		attribute	"ArmState", "string"
 		attribute	"AlarmState", "string"
 		attribute	"LastUser", "string"
+		attribute	"contact", "string"
+		attribute	"switch", "string"
 	}
 	preferences {
 		input("ip", "text", title: "IP Address", description: "ip", required: true)
@@ -88,7 +91,6 @@ def initialize() {
 		//give it a chance to start
 		pauseExecution(1000)
 		ifDebug("Telnet connection to Elk M1 established")
-		RequestZoneDefinitions()
 		//poll()
 	} catch(e) {
 		log.warn "initialize error: ${e.message}"
@@ -100,6 +102,9 @@ def uninstalled() {
 	removeChildDevices(getChildDevices())
 }
 
+private removeChildDevices(delete) {
+	delete.each {deleteChildDevice(it.deviceNetworkId)}
+}
 
 //Elk M1 Command Line Request - Start of
 def off() {
@@ -156,38 +161,22 @@ def ArmVacation() {
 def RequestArmStatus() {
  	ifDebug("requestArmStatus()")
 	String cmd = elkCommands["RequestArmStatus"]
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def RequestTemperatureData() {
  	ifDebug("requestTemperatureData()")
 	String cmd = elkCommands["RequestTemperatureData"]
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 //This for loop now works properly
-def RequestTextDescriptions(deviceType) {
- 	ifDebug("Request Text Descriptions()")
-	RequestZoneDefinitions()
-	pauseExecution(50)
-	String cmd = elkCommands["RequestTextDescriptions"]
-	int maxDev = 208;
-	if (deviceType == "05") maxDev = 32
-	if (deviceType == "11") maxDev = 16
-	for (i = 1; i <= maxDev; i++) {
-		number = (i.toString())
-		number = (number.padLeft(3,'0'))
-		String msg = cmd + deviceType + number + "00"
-		int len = (msg.length()+2)
-		String msgStr = Integer.toHexString(len)
-		msgStr = (msgStr.toUpperCase())
-		msgStr = (msgStr.padLeft(2,'0')) 
-		msg = msgStr + msg
-		String cc = generateChksum(msg)
-		msg = msg + cc
-		sendHubCommand(new hubitat.device.HubAction(msg, hubitat.device.Protocol.TELNET))
-		pauseExecution(50)
-	}
+def RequestTextDescriptions(deviceType, startDev) {
+	ifDebug("Request Text Descriptions Type: ${deviceType} Zone: ${startDev}")
+	String cmd = elkCommands["RequestTextDescriptions"] + deviceType + String.format("%03d", startDev.toInteger()) + "00"
+	String msgStr = addChksum(Integer.toHexString(cmd.length() + 2).toUpperCase().padLeft(2,'0') + cmd)
+	ifDebug("sending $msgStr")
+	sendHubCommand(new hubitat.device.HubAction(msgStr, hubitat.device.Protocol.TELNET))
 }
 
 def ControlOutputOn(output, time) {
@@ -198,7 +187,7 @@ def ControlOutputOn(output, time) {
 	output = (output.padLeft(3,'0'))
 	time = (time.padLeft(5,'0'))
 	cmd = cmd + output + time
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def ControlOutputOff(output) {
@@ -207,7 +196,7 @@ def ControlOutputOff(output) {
 	output = output.toString()
 	output = (output.padLeft(3,'0'))
 	cmd = cmd + output
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
  
 def ControlOutputToggle(output) {
@@ -216,7 +205,7 @@ def ControlOutputToggle(output) {
 	output = output.toString()
 	output = (output.padLeft(3,'0'))
 	cmd = cmd + output
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
  
 def TaskActivation(task) {
@@ -225,7 +214,7 @@ def TaskActivation(task) {
 	task = task.toString()
 	task = (task.padLeft(3,'0'))
 	cmd = cmd + task
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def RequestThermostatData() {
@@ -233,7 +222,7 @@ def RequestThermostatData() {
 	String cmd = elkCommands["RequestThermostatData"]
 	String thermostat = "01"
 	cmd = cmd + thermostat
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def setThermostatMode(tstat, thermostatmode) {
@@ -244,7 +233,7 @@ def setThermostatMode(tstat, thermostatmode) {
 	element = "0"
 	cmd = cmd + thermostat + value + element
  	ifDebug("setThermostatMode()" + cmd + thermostatmode + thermostat)
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def auto(tstat) {
@@ -253,7 +242,7 @@ def auto(tstat) {
 	value = "03"
 	element = "0"
 	cmd = cmd + thermostat + value + element
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def heat(tstat) {
@@ -262,7 +251,7 @@ def heat(tstat) {
 	value = "01"
 	element = "0"
 	cmd = cmd + thermostat + value + element
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def cool(tstat) {
@@ -271,7 +260,7 @@ def cool(tstat) {
 	value = "02"
 	element = "0"
 	cmd = cmd + thermostat + value + element
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def off(tstat) {
@@ -280,7 +269,7 @@ def off(tstat) {
 	value = "00"
 	element = "0"
 	cmd = cmd + thermostat + value + element
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def setThermostatFanMode(tstat, fanmode) {
@@ -290,7 +279,7 @@ def setThermostatFanMode(tstat, fanmode) {
 	value = (value.padLeft(2,'0'))
 	element = "2"
 	cmd = cmd + thermostat + value + element
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def fanOn(tstat) {
@@ -299,7 +288,7 @@ def fanOn(tstat) {
 	value = "01"
 	element = "2"
 	cmd = cmd + thermostat + value + element
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def fanAuto(tstat) {
@@ -308,7 +297,7 @@ def fanAuto(tstat) {
 	value = "00"
 	element = "2"
 	cmd = cmd + thermostat + value + element
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def setHeatingSetpoint(tstat, degrees) {
@@ -317,7 +306,7 @@ def setHeatingSetpoint(tstat, degrees) {
 	value = degrees
 	element = "5"
 	cmd = cmd + thermostat + value + element
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def setCoolingSetpoint(tstat, degrees) {
@@ -326,7 +315,7 @@ def setCoolingSetpoint(tstat, degrees) {
 	value = degrees
 	element = "4"
 	cmd = cmd + thermostat + value + element
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 //def setThermostatSetpoint(tstat, degrees) {
@@ -335,25 +324,25 @@ def setCoolingSetpoint(tstat, degrees) {
 //	value = degrees
 //	element = "4"
 //	cmd = cmd + thermostat + value + element
-//	prepMsg2(cmd)
+//	sendMsg(cmd)
 //}
 
 def RequestZoneDefinitions() {
  	ifDebug("request Zone Definitions()")
 	String cmd = elkCommands["RequestZoneDefinitions"]
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def RequestZoneStatus() {
  	ifDebug("RequestZoneStatus()")
 	String cmd = elkCommands["RequestZoneStatus"]
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 def RequestOutputStatus() {
  	ifDebug("RequestOutputStatus()")
 	String cmd = elkCommands["RequestOutputStatus"]
-	prepMsg2(cmd)
+	sendMsg(cmd)
 }
 
 //Elk M1 Command Line Request - End of
@@ -361,39 +350,22 @@ def RequestOutputStatus() {
 
 //Elk M1 Message Send Lines - Start of
 def prepMsg(cmd) {
-	def area = "1"
-	def code = (code.padLeft(6,'0'))
-	cmd = cmd + area + code
-	prepMsg2(cmd)
+	String area = "1"
+	sendMsg(cmd + area + code.padLeft(6,'0'))
 }
 
-def prepMsg2(cmd) {
+def sendMsg(cmd) {
 	String msg = cmd + "00"
-	int len = (msg.length()+2)
-	String msgStr = Integer.toHexString(len)
-	msgStr = (msgStr.toUpperCase())
-	msgStr = (msgStr.padLeft(2,'0'))
-	msg = msgStr + msg
-	String cc = generateChksum(msg)
-	msg = msg + cc + '\r\n'
-	sendMsg(msg)
+	String msgStr = addChksum(Integer.toHexString(msg.length() + 2).toUpperCase().padLeft(2,'0') + msg)
+	ifDebug("sendMsg $msgStr")
+	return new hubitat.device.HubAction(msgStr, hubitat.device.Protocol.TELNET)
 }
 
-private generateChksum(String msg) {
-	def msgArray = msg.toCharArray()
-	def msgSum = 0
+private addChksum(String msg) {
+	char[] msgArray = msg.toCharArray()
+	int msgSum = 0
 	msgArray.each { (msgSum += (int)it) }
-	msgSum = msgSum % 256
-	msgSum = 256 - msgSum
-	String chkSumStr = Integer.toHexString(msgSum)
-	chkSumStr = (chkSumStr.toUpperCase())
-	chkSumStr = (chkSumStr.padLeft(2,'0'))
-}
-
-def sendMsg(msg) {
-	String s = msg
-	ifDebug("sendMsg $s")
-	return new hubitat.device.HubAction(s, hubitat.device.Protocol.TELNET)
+	String chkSumStr = msg + Integer.toHexString(256 - (msgSum % 256)).toUpperCase().padLeft(2,'0')
 }
 
 //Elk M1 Message Send Lines - End of
@@ -435,7 +407,7 @@ private parse(String message) {
 			logData(message);
 			break;
 		case "LW":
-			//temperatureData(message);
+			temperatureData(message);
 			break;
 		case "SD":
 			stringDescription(message);
@@ -560,6 +532,12 @@ def armStatusReport(message) {
 		state.alarmState = alarmState
 		sendEvent(name:"AlarmState", value: alarmState, displayed:false, isStateChange: true)
 		log.info "AlarmState changed to ${alarmState}"
+		if (alarmState == PoliceAlarm || alarmState == BurgularAlarm) {
+			device.sendEvent(name: "contact", value: "open", isStateChange: true)
+		}
+		else {
+			device.sendEvent(name: "contact", value: "closed", isStateChange: true)
+		}
 	}
 }
 
@@ -639,11 +617,34 @@ def logData(message) {
 }
 
 def temperatureData(message) {
-	def KP1 = message.substring(4, 7).toInteger()-40
-	def KP2 = message.substring(7, 10).toInteger()-40
-	def TS1 = message.substring(7, 10).toInteger()-60
-	def TS2 = message.substring(7, 10).toInteger()-60
-	ifDebug("Temps: " + KP1 + ' - ' + TS1)
+	int number
+	String zoneNumber
+	def zoneDevice
+	for (int i = 4; i <= 50; i +=3 ) {
+		number = message.substring(i, i + 3).toInteger()
+		if (number > 0) {
+			zoneNumber = String.format("%03d", (i - 1) / 3)
+			number = number - 40
+			ifDebug("Keypad ${zoneNumber} temp: ${number}")
+			zoneDevice = getChildDevice("${device.deviceNetworkId}_P_${zoneNumber}")
+			if (zoneDevice?.capabilities.find { it.name == "TemperatureMeasurement" } != null) {
+				zoneDevice.sendEvent(name: "temperature", value: number)
+			}
+		}
+	}
+
+	for (int i = 52; i <= 98; i +=3 ) {
+		number = message.substring(i, i + 3).toInteger()
+		if (number > 0) {
+			zoneNumber = String.format("%03d", (i - 49) / 3)
+			number = number - 60
+			ifDebug("Zone ${zoneNumber} temp: ${number}")
+			zoneDevice = getChildDevice("${device.deviceNetworkId}_Z_${zoneNumber}")
+			if (zoneDevice?.capabilities.find { it.name == "TemperatureMeasurement" } != null) {
+				zoneDevice.sendEvent(name: "temperature", value: number)
+			}
+		}
+	}
 }
 
 def stringDescription(message) {
@@ -651,8 +652,15 @@ def stringDescription(message) {
 	if(zoneNumber != "000") {
 		String zoneName
 		String zoneType = message.substring(4, 6)
-		String zoneText = message.substring(9, 25).trim()
-		createZone([zoneNumber: zoneNumber, zoneName: zoneName, zoneType: zoneType, zoneText: zoneText])
+		byte firstText = message.substring(9, 10)
+		String zoneText = (String)((char)(firstText & 0b01111111)) + message.substring(10, 25).trim() // Mask high order "Show On Keypad" bit in first letter
+		if (zoneText != "") {
+			createZone([zoneNumber: zoneNumber, zoneName: zoneName, zoneType: zoneType, zoneText: zoneText])
+		}
+		int i = zoneNumber.toInteger() // Request next zone description
+		if (i < 208) {
+			RequestTextDescriptions(zoneType, i + 1)
+		}
 	}
 }
 
@@ -704,7 +712,7 @@ def thermostatData(message) {
 
 def zoneDefinitionReport(message) {
 	String zoneString
-	zoneDefinitions = message.substring(4, 212)
+	String zoneDefinitions = message.substring(4, 212)
 	for (i = 1; i <= 208; i++) {
 		zoneString = elkZoneDefinitions[zoneDefinitions.substring(i - 1, i)]
 		if (zoneString != null && zoneString != Disabled) {
@@ -963,6 +971,12 @@ def createZone(zoneInfo){
 				newDevice.updateSetting("autoInactive",[type:"enum", value:0])
 				newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
 			}
+			else if (zoneName ==~ /(?i).*temperature.*/) {
+				log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Temperature"
+				addChildDevice("hubitat", "Virtual Temperature Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+				def newDevice = getChildDevice(deviceNetworkId)
+				newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
+			}
 			else {
 				log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Contact"
 				addChildDevice("hubitat", "Virtual Contact Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
@@ -974,27 +988,16 @@ def createZone(zoneInfo){
 			ifDebug("deviceNetworkId = ${device.deviceNetworkId}_Z_${zoneNumber} already exists")
 		}
 	}
-	else if (zoneInfo.zoneType == "11") {
+	else if (zoneInfo.zoneType == "03") {
 		if (zoneName == null) {
-			zoneName = "Thermostat ${zoneNumber} - ${zoneInfo.zoneText}"
+			zoneName = "Keypad ${zoneNumber.substring(1, 3)} - ${zoneInfo.zoneText}"
 		}
-		deviceNetworkId = "${device.deviceNetworkId}_T_${zoneNumber}"
+		deviceNetworkId = "${device.deviceNetworkId}_P_${zoneNumber}"
 		if (getChildDevice(deviceNetworkId) == null) {
-			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Thermostat"
-			addChildDevice("belk", "Elk M1 Driver Thermostat", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
-		}
-		else {
-			ifDebug("deviceNetworkId = ${deviceNetworkId} already exists")
-		}
-	}
-	else if (zoneInfo.zoneType == "05") {
-		if (zoneName == null) {
-			zoneName = "Task ${zoneNumber} - ${zoneInfo.zoneText}"
-		}
-		deviceNetworkId = "${device.deviceNetworkId}_K_${zoneNumber}"
-		if (getChildDevice(deviceNetworkId) == null) {
-			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Task"
-			addChildDevice("belk", "Elk M1 Driver Tasks", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Keypad"
+			addChildDevice("hubitat", "Virtual Temperature Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+			def newDevice = getChildDevice(deviceNetworkId)
+			newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
 		}
 		else {
 			ifDebug("deviceNetworkId = ${deviceNetworkId} already exists")
@@ -1008,6 +1011,32 @@ def createZone(zoneInfo){
 		if (getChildDevice(deviceNetworkId) == null) {
 			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Output"
 			addChildDevice("belk", "Elk M1 Driver Outputs", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+		}
+		else {
+			ifDebug("deviceNetworkId = ${deviceNetworkId} already exists")
+		}
+	}
+	else if (zoneInfo.zoneType == "05") {
+		if (zoneName == null) {
+			zoneName = "Task ${zoneNumber.substring(1, 3)} - ${zoneInfo.zoneText}"
+		}
+		deviceNetworkId = "${device.deviceNetworkId}_K_${zoneNumber}"
+		if (getChildDevice(deviceNetworkId) == null) {
+			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Task"
+			addChildDevice("belk", "Elk M1 Driver Tasks", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+		}
+		else {
+			ifDebug("deviceNetworkId = ${deviceNetworkId} already exists")
+		}
+	}
+	else if (zoneInfo.zoneType == "11") {
+		if (zoneName == null) {
+			zoneName = "Thermostat ${zoneNumber} - ${zoneInfo.zoneText}"
+		}
+		deviceNetworkId = "${device.deviceNetworkId}_T_${zoneNumber}"
+		if (getChildDevice(deviceNetworkId) == null) {
+			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Thermostat"
+			addChildDevice("belk", "Elk M1 Driver Thermostat", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
 		}
 		else {
 			ifDebug("deviceNetworkId = ${deviceNetworkId} already exists")
@@ -1096,7 +1125,6 @@ private ifDebug(msg)
 
 
 ////REFERENCES AND MAPPINGS////
-@Field String zoneDefinitions
 // Event Mapping Readable Text
 @Field static final String NoEvent = "No Event"
 @Field static final String FIREALARM = "Fire Alarm"
@@ -1281,7 +1309,7 @@ private ifDebug(msg)
   '4': ArmedFully,
   '5': ForceArmed,
   '6': ArmedwithaBypass
-	]
+]
 
 @Field static final String NoActiveAlarm = "No Active Alarm"
 @Field static final String EntranceDelayisActive = "Entrance Delay is Active"
@@ -1323,7 +1351,7 @@ private ifDebug(msg)
   '@': WaterAlarm,
   'A': FireSupervisory,
   'B': FireVerified
-	]
+]
 
 // Zone Status Mapping Readable Text
 @Field static final String NormalUnconfigured = "Normal: Unconfigured"
@@ -1343,7 +1371,7 @@ private ifDebug(msg)
 @Field static final String BypassedShort = "Bypassed: Short"
 
 // Zone Status Mapping
-@Field final Map	elkZoneStatuses  = [
+@Field final Map	elkZoneStatuses = [
   '0': NormalUnconfigured,
   '1': NormalOpen,
   '2': NormalEOL,
@@ -1630,6 +1658,18 @@ private ifDebug(msg)
 /***********************************************************************************************************************
 *
 * Release Notes (see Known Issues Below)
+*
+* 0.1.28
+* Added ability to handle a zone with a Temperature Probe attached to the main board. Automatically assigned when
+*   the zone's description has the word "Temperature" in it or zone device can be manually changed.
+* Added the device type Keypad for temperature readings.
+* Both devices are assigned the Virtual Temperature Sensor driver.  This is an experimental feature.  Since the panel
+*   does not volunteer temperature data, it must be requested either manually for all devices using the Request Temperature
+*   Data button on the main driver or by setting up a rule to periodically execute the RequestTemperatureData command.
+* Added "ContactSensor" as a capability for HSM monitoring.  The contact will open if a Burglar Alarm or Police Alarm is triggered.
+* Changed the method of importing devices to greatly improve performance and reduce panel communication.
+* Fixed an issue not deleting child devices when the main driver is uninstalled.
+* Fixed an issue with the name when importing a device with the "Show On Keypad" flag set.
 *
 * 0.1.27
 * You can now change the port on the main device page.  You must click "Initialize" after you save preferences to take effect
