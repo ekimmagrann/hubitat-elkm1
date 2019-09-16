@@ -1,25 +1,25 @@
 /***********************************************************************************************************************
-*
-*  A Hubitat Child Driver supporting Elk M1 Outputs.
-*  
-*  License:
-*  This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-*  General Public License as published by the Free Software Foundation, either version 3 of the License, or
-*  (at your option) any later version.
-*
-*  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-*  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
-*  for more details.
-*
-*  Name: Elk M1 Driver Outputs
-*
-*  I am not a programmer so alot of this work is through trial and error. I also spent a good amount of time looking 
-*  at other integrations on various platforms.
-*
-***See Release Notes at the bottom***
-***********************************************************************************************************************/
+ *
+ *  A Hubitat Child Driver supporting Elk M1 Outputs.
+ *
+ *  License:
+ *  This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+ *  General Public License as published by the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+ *  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+ *  for more details.
+ *
+ *  Name: Elk M1 Driver Outputs
+ *
+ *  I am not a programmer so alot of this work is through trial and error. I also spent a good amount of time looking
+ *  at other integrations on various platforms.
+ *
+ ***See Release Notes at the bottom***
+ ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.4" }
+public static String version() { return "v0.1.5" }
 
 metadata {
 	definition (name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
@@ -44,48 +44,46 @@ def updated() {
 }
 
 def push() {
-	output = device.deviceNetworkId
-	substringCount = output.length()-3
-	output = output.substring(substringCount).take(3)
-	time = '00001'
-	parent.ControlOutputOn(output, time)
+	String output = device.deviceNetworkId
+	output = output.substring(output.length() - 3).take(3)
+	parent.ControlOutputOn(output.toInteger(), '00001')
 }
 
 def on() {
-	output = device.deviceNetworkId
-	substringCount = output.length()-3
-	output = output.substring(substringCount).take(3)
-	time = '00000'
-	parent.ControlOutputOn(output, time)
+	String output = device.deviceNetworkId
+	output = output.substring(output.length() - 3).take(3)
+	parent.ControlOutputOn(output.toInteger(), '00000')
 }
 
 def off() {
-	output = device.deviceNetworkId
-	substringCount = output.length()-3
-	output = output.substring(substringCount).take(3)
-	parent.ControlOutputOff(output)
+	String output = device.deviceNetworkId
+	output = output.substring(output.length() - 3).take(3)
+	parent.ControlOutputOff(output.toInteger())
 }
 
 /***********************************************************************************************************************
-*
-* Release Notes (see Known Issues Below)
-*
-* 0.1.4
-* Added info logging
-*
-* 0.1.3
-* Added Monentary capability
-*
-* 0.1.2
-* Cleaned up code
-*
-* 0.1.1
-* New child driver to Elk M1 Outputs
-*
-***********************************************************************************************************************/
+ *
+ * Release Notes (see Known Issues Below)
+ *
+ * 0.1.5
+ * Strongly typed variables for performance
+ *
+ * 0.1.4
+ * Added info logging
+ *
+ * 0.1.3
+ * Added Monentary capability
+ *
+ * 0.1.2
+ * Cleaned up code
+ *
+ * 0.1.1
+ * New child driver to Elk M1 Outputs
+ *
+ ***********************************************************************************************************************/
 /***********************************************************************************************************************
-*
-*Feature Request & Known Issues
-*
-*
-***********************************************************************************************************************/
+ *
+ *Feature Request & Known Issues
+ *
+ *
+ ***********************************************************************************************************************/

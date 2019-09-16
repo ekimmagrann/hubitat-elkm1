@@ -1,28 +1,28 @@
 /***********************************************************************************************************************
-*
-*  A Hubitat Driver using Telnet on the local network to connect to the Elk M1 via the M1XEP or C1M1
-*  
-*  License:
-*  This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-*  General Public License as published by the Free Software Foundation, either version 3 of the License, or
-*  (at your option) any later version.
-*
-*  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-*  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
-*  for more details.
-*
-*  Name: Elk M1 Driver
-*
-*  A Special Thanks to Doug Beard for the framework of this driver!
-*
-*  I am not a programmer so alot of this work is through trial and error. I also spent a good amount of time looking 
-*  at other integrations on various platforms. I know someone else was working on an Elk driver that involved an ESP
-*  setup. This is a more direct route using equipment I already owned.
-*
-***See Release Notes at the bottom***
-***********************************************************************************************************************/
+ *
+ *  A Hubitat Driver using Telnet on the local network to connect to the Elk M1 via the M1XEP or C1M1
+ *
+ *  License:
+ *  This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+ *  General Public License as published by the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+ *  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+ *  for more details.
+ *
+ *  Name: Elk M1 Driver
+ *
+ *  A Special Thanks to Doug Beard for the framework of this driver!
+ *
+ *  I am not a programmer so alot of this work is through trial and error. I also spent a good amount of time looking
+ *  at other integrations on various platforms. I know someone else was working on an Elk driver that involved an ESP
+ *  setup. This is a more direct route using equipment I already owned.
+ *
+ ***See Release Notes at the bottom***
+ ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.28" }
+public static String version() { return "v0.1.29" }
 public static boolean isDebug() { return true }
 import groovy.transform.Field
 //import java.util.regex.Matcher
@@ -55,7 +55,6 @@ metadata {
 		command "RequestZoneDefinitions"
 		command "RequestZoneStatus"
 		command "RequestOutputStatus"
-		command "TaskActivations"
 		attribute	"ArmStatus", "string"
 		attribute	"ArmState", "string"
 		attribute	"AlarmState", "string"
@@ -84,7 +83,7 @@ def updated() {
 }
 
 def initialize() {
-	telnetClose() 
+	telnetClose()
 	try {
 		//open telnet connection
 		telnetConnect([termChars:[13,10]], ip, port.toInteger(), null, null)
@@ -98,7 +97,7 @@ def initialize() {
 }
 
 def uninstalled() {
-	telnetClose() 
+	telnetClose()
 	removeChildDevices(getChildDevices())
 }
 
@@ -107,240 +106,234 @@ private removeChildDevices(delete) {
 }
 
 //Elk M1 Command Line Request - Start of
-def off() {
+hubitat.device.HubAction off() {
 	Disarm()
 }
 
-def on() {
+hubitat.device.HubAction on() {
 	ArmAway()
 }
 
-def Disarm() {
- 	ifDebug("Disarm()")
+hubitat.device.HubAction Disarm() {
+	ifDebug("Disarm()")
 	String cmd = elkCommands["Disarm"]
 	prepMsg(cmd)
 }
 
 
-def ArmAway() {
+hubitat.device.HubAction ArmAway() {
 	ifDebug("ArmAway()")
 	String cmd = elkCommands["ArmAway"]
 	prepMsg(cmd)
 }
 
-def ArmHome() {
- 	ifDebug("armHome()")
+hubitat.device.HubAction ArmHome() {
+	ifDebug("armHome()")
 	def cmd = elkCommands["ArmHome"]
 	prepMsg(cmd)
 }
 
-def ArmStayInstant() {
- 	ifDebug("armStayInstant()")
+hubitat.device.HubAction ArmStayInstant() {
+	ifDebug("armStayInstant()")
 	String cmd = elkCommands["ArmStayInstant"]
 	prepMsg(cmd)
 }
 
-def ArmNight() {
- 	ifDebug("armNight()")
+hubitat.device.HubAction ArmNight() {
+	ifDebug("armNight()")
 	String cmd = elkCommands["ArmNight"]
 	prepMsg(cmd)
 }
 
-def ArmNightInstant() {
- 	ifDebug("armNightInstant()")
+hubitat.device.HubAction ArmNightInstant() {
+	ifDebug("armNightInstant()")
 	String cmd = elkCommands["ArmNightInstant"]
 	prepMsg(cmd)
 }
 
-def ArmVacation() {
- 	ifDebug("armVacation()")
+hubitat.device.HubAction ArmVacation() {
+	ifDebug("armVacation()")
 	String cmd = elkCommands["ArmVacation"]
 	prepMsg(cmd)
 }
 
-def RequestArmStatus() {
- 	ifDebug("requestArmStatus()")
+hubitat.device.HubAction RequestArmStatus() {
+	ifDebug("requestArmStatus()")
 	String cmd = elkCommands["RequestArmStatus"]
 	sendMsg(cmd)
 }
 
-def RequestTemperatureData() {
- 	ifDebug("requestTemperatureData()")
+hubitat.device.HubAction RequestTemperatureData() {
+	ifDebug("requestTemperatureData()")
 	String cmd = elkCommands["RequestTemperatureData"]
 	sendMsg(cmd)
 }
 
 //This for loop now works properly
-def RequestTextDescriptions(deviceType, startDev) {
+def RequestTextDescriptions(String deviceType, int startDev) {
 	ifDebug("Request Text Descriptions Type: ${deviceType} Zone: ${startDev}")
-	String cmd = elkCommands["RequestTextDescriptions"] + deviceType + String.format("%03d", startDev.toInteger()) + "00"
+	String cmd = elkCommands["RequestTextDescriptions"] + deviceType + String.format("%03d", startDev) + "00"
 	String msgStr = addChksum(Integer.toHexString(cmd.length() + 2).toUpperCase().padLeft(2,'0') + cmd)
 	ifDebug("sending $msgStr")
 	sendHubCommand(new hubitat.device.HubAction(msgStr, hubitat.device.Protocol.TELNET))
 }
 
-def ControlOutputOn(output, time) {
- 	ifDebug("controlOutputOn()")
+hubitat.device.HubAction ControlOutputOn(BigDecimal output = 0, String time = "0") {
+	ifDebug("controlOutputOn()")
 	String cmd = elkCommands["ControlOutputOn"]
-	output = output.toString()
-	time = time.toString()
-	output = (output.padLeft(3,'0'))
-	time = (time.padLeft(5,'0'))
-	cmd = cmd + output + time
+	cmd = cmd + String.format("%03d", output.intValue()) + time.padLeft(5,'0')
 	sendMsg(cmd)
 }
 
-def ControlOutputOff(output) {
- 	ifDebug("controlOutputOff()" + output)
+hubitat.device.HubAction ControlOutputOff(BigDecimal output = 0) {
+	ifDebug("controlOutputOff()")
 	String cmd = elkCommands["ControlOutputOff"]
-	output = output.toString()
-	output = (output.padLeft(3,'0'))
-	cmd = cmd + output
-	sendMsg(cmd)
-}
- 
-def ControlOutputToggle(output) {
- 	ifDebug("controlOutputToggle()")
-	String cmd = elkCommands["ControlOutputToggle"]
-	output = output.toString()
-	output = (output.padLeft(3,'0'))
-	cmd = cmd + output
-	sendMsg(cmd)
-}
- 
-def TaskActivation(task) {
- 	ifDebug("taskActivation()")
-	String cmd = elkCommands["TaskActivation"]
-	task = task.toString()
-	task = (task.padLeft(3,'0'))
-	cmd = cmd + task
+	cmd = cmd + String.format("%03d", output.intValue())
 	sendMsg(cmd)
 }
 
-def RequestThermostatData() {
- 	ifDebug("requestThermostatData()")
+hubitat.device.HubAction ControlOutputToggle(BigDecimal output = 0) {
+	ifDebug("controlOutputToggle()")
+	String cmd = elkCommands["ControlOutputToggle"]
+	cmd = cmd + String.format("%03d", output.intValue())
+	sendMsg(cmd)
+}
+
+hubitat.device.HubAction TaskActivation(BigDecimal task = 0) {
+	ifDebug("taskActivation()")
+	String cmd = elkCommands["TaskActivation"]
+	cmd = cmd + String.format("%03d", task.intValue())
+	sendMsg(cmd)
+}
+
+hubitat.device.HubAction RequestThermostatData(String thermostat = "01") {
+	ifDebug("requestThermostatData()")
 	String cmd = elkCommands["RequestThermostatData"]
-	String thermostat = "01"
 	cmd = cmd + thermostat
 	sendMsg(cmd)
 }
 
-def setThermostatMode(tstat, thermostatmode) {
+hubitat.device.HubAction setThermostatMode(String thermostatmode, String thermostat = "01") {
 	String cmd = elkCommands["setThermostatMode"]
-	String thermostat = tstat
 	String value = elkThermostatModeSet[thermostatmode]
 	value = (value.padLeft(2,'0'))
-	element = "0"
+	String element = "0"
 	cmd = cmd + thermostat + value + element
- 	ifDebug("setThermostatMode()" + cmd + thermostatmode + thermostat)
+	ifDebug("setThermostatMode()" + cmd + thermostatmode + thermostat)
 	sendMsg(cmd)
 }
 
-def auto(tstat) {
+hubitat.device.HubAction auto(String thermostat = "01") {
 	String cmd = elkCommands["auto"]
-	thermostat = tstat
-	value = "03"
-	element = "0"
+	String value = "03"
+	String element = "0"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
 }
 
-def heat(tstat) {
+hubitat.device.HubAction heat(String thermostat = "01") {
 	String cmd = elkCommands["heat"]
-	thermostat = tstat
-	value = "01"
-	element = "0"
+	String value = "01"
+	String element = "0"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
 }
 
-def cool(tstat) {
+hubitat.device.HubAction emergencyHeat(String thermostat = "01") {
+	String cmd = elkCommands["emergencyHeat"]
+	String value = "01"
+	String element = "0"
+	cmd = cmd + thermostat + value + element
+	sendMsg(cmd)
+}
+
+hubitat.device.HubAction cool(String thermostat = "01") {
 	String cmd = elkCommands["cool"]
-	thermostat = tstat
-	value = "02"
-	element = "0"
+	String value = "02"
+	String element = "0"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
 }
 
-def off(tstat) {
+hubitat.device.HubAction off(String thermostat) {
 	String cmd = elkCommands["off"]
-	thermostat = tstat
-	value = "00"
-	element = "0"
+	String value = "00"
+	String element = "0"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
 }
 
-def setThermostatFanMode(tstat, fanmode) {
+hubitat.device.HubAction setThermostatFanMode(String fanmode, String thermostat = "01") {
 	String cmd = elkCommands["setThermostatFanMode"]
-	thermostat = tstat
 	String value = elkThermostatFanModeSet[fanmode]
 	value = (value.padLeft(2,'0'))
-	element = "2"
+	String element = "2"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
 }
 
-def fanOn(tstat) {
+hubitat.device.HubAction fanOn(String thermostat = "01") {
 	String cmd = elkCommands["fanOn"]
-	thermostat = tstat
-	value = "01"
-	element = "2"
+	String value = "01"
+	String element = "2"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
 }
 
-def fanAuto(tstat) {
+hubitat.device.HubAction fanAuto(String thermostat = "01") {
 	String cmd = elkCommands["fanAuto"]
-	thermostat = tstat
-	value = "00"
-	element = "2"
+	String value = "00"
+	String element = "2"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
 }
 
-def setHeatingSetpoint(tstat, degrees) {
+hubitat.device.HubAction fanCirculate(String thermostat = "01") {
+	String cmd = elkCommands["fanCirculate"]
+	String value = "00"
+	String element = "2"
+	cmd = cmd + thermostat + value + element
+	sendMsg(cmd)
+}
+
+hubitat.device.HubAction setHeatingSetpoint(BigDecimal degrees, String thermostat = "01") {
 	String cmd = elkCommands["setHeatingSetpoint"]
-	thermostat = tstat
-	value = degrees
-	element = "5"
+	String value = String.format("%02d", degrees.intValue())
+	String element = "5"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
 }
 
-def setCoolingSetpoint(tstat, degrees) {
+hubitat.device.HubAction setCoolingSetpoint(BigDecimal degrees, String thermostat = "01") {
 	String cmd = elkCommands["setCoolingSetpoint"]
-	thermostat = tstat
-	value = degrees
-	element = "4"
+	String value = String.format("%02d", degrees.intValue())
+	String element = "4"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
 }
 
-//def setThermostatSetpoint(tstat, degrees) {
+//hubitat.device.HubAction setThermostatSetpoint(String degrees, String thermostat = "01") {
 //	String cmd = elkCommands["setHeatingSetpoint"]
-//	thermostat = tstat
-//	value = degrees
-//	element = "4"
+//	String value = degrees
+//	String element = "4"
 //	cmd = cmd + thermostat + value + element
 //	sendMsg(cmd)
 //}
 
-def RequestZoneDefinitions() {
- 	ifDebug("request Zone Definitions()")
+hubitat.device.HubAction RequestZoneDefinitions() {
+	ifDebug("request Zone Definitions()")
 	String cmd = elkCommands["RequestZoneDefinitions"]
 	sendMsg(cmd)
 }
 
-def RequestZoneStatus() {
- 	ifDebug("RequestZoneStatus()")
+hubitat.device.HubAction RequestZoneStatus() {
+	ifDebug("RequestZoneStatus()")
 	String cmd = elkCommands["RequestZoneStatus"]
 	sendMsg(cmd)
 }
 
-def RequestOutputStatus() {
- 	ifDebug("RequestOutputStatus()")
+hubitat.device.HubAction RequestOutputStatus() {
+	ifDebug("RequestOutputStatus()")
 	String cmd = elkCommands["RequestOutputStatus"]
 	sendMsg(cmd)
 }
@@ -349,19 +342,19 @@ def RequestOutputStatus() {
 
 
 //Elk M1 Message Send Lines - Start of
-def prepMsg(cmd) {
+hubitat.device.HubAction prepMsg(String cmd) {
 	String area = "1"
 	sendMsg(cmd + area + code.padLeft(6,'0'))
 }
 
-def sendMsg(cmd) {
+hubitat.device.HubAction sendMsg(String cmd) {
 	String msg = cmd + "00"
 	String msgStr = addChksum(Integer.toHexString(msg.length() + 2).toUpperCase().padLeft(2,'0') + msg)
 	ifDebug("sendMsg $msgStr")
 	return new hubitat.device.HubAction(msgStr, hubitat.device.Protocol.TELNET)
 }
 
-private addChksum(String msg) {
+String addChksum(String msg) {
 	char[] msgArray = msg.toCharArray()
 	int msgSum = 0
 	msgArray.each { (msgSum += (int)it) }
@@ -436,7 +429,7 @@ private parse(String message) {
 	}
 }
 
-def zoneChange(message) {
+def zoneChange(String message) {
 	String zoneNumber = message.substring(4, 7)
 	String zoneStatus = message.substring(7, 8)
 	switch (zoneStatus) {
@@ -487,7 +480,7 @@ def zoneChange(message) {
 	}
 }
 
-def entryExitChange(message) {
+def entryExitChange(String message) {
 	String exitArea = message.substring(4, 5)
 	String exitTime = message.substring(6, 12)
 	String armStatus = elkArmStatuses[message.substring(12, 13)]
@@ -513,14 +506,14 @@ def entryExitChange(message) {
 			newSetArm = "armAway"
 		}
 		else {
-			newArmMode = "Away"				
+			newArmMode = "Away"
 			newSetArm = "armAway"
-		}		
+		}
 		setMode(newArmMode, newSetArm, armStatus)
 	}
 }
 
-def armStatusReport(message) {
+def armStatusReport(String message) {
 	String armStatus = elkArmStatuses[message.substring(4, 5)]
 	String armUpState = elkArmUpStates[message.substring(12, 13)]
 	String alarmState = elkAlarmStates[message.substring(20, 21)]
@@ -541,13 +534,13 @@ def armStatusReport(message) {
 	}
 }
 
-def userCodeEntered(message) {
+def userCodeEntered(String message) {
 	String userCode = message.substring(16, 19)
 	ifDebug("LastUser: ${userCode} - ${message}")
 	sendEvent(name:"LastUser", value: userCode, displayed:false, isStateChange: true)
 }
 
-def alarmReporting(message) {
+def alarmReporting(String message) {
 	ifDebug("AlarmReporting: ")
 	String accountNumber = message.substring(4, 10)
 	String alarmCode = message.substring(10, 14)
@@ -556,39 +549,40 @@ def alarmReporting(message) {
 	String telIp = message.substring(19, 20)
 }
 
-def outputChange(message) {
+def outputChange(String message) {
 	String outputNumber = message.substring(4, 7)
 	String outputState = (message.substring(7, 8) == "1") ? "on" : "off"
 	def zoneDevice = getChildDevice("${device.deviceNetworkId}_O_${outputNumber}")
 	if (zoneDevice != null) {
 		ifDebug("Output Change Update: ${outputNumber} - ${outputState}")
 //		if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}) {
-			zoneDevice.sendEvent(name: "switch", value: outputState, isStateChange: true)
-			if (zoneDevice.hasCommand("writeLog")) zoneDevice.writeLog(outputState)
+		zoneDevice.sendEvent(name: "switch", value: outputState, isStateChange: true)
+		if (zoneDevice.hasCommand("writeLog")) zoneDevice.writeLog(outputState)
 //		}
 	}
 }
 
-def outputStatus(message) {
+def outputStatus(String message) {
 	String outputString = message.substring(4, 212)
 	String outputState
+	int i
 	for (i = 1; i <= 208; i++) {
 		outputState = outputString.substring(i - 1, i)
 		//ifDebug("OutputStatus: Output " + i + " - " + elkOutputStates[outputState])
-		outputChange("    ${String.format("%03d", i)}" + outputState)
+		outputChange("    " + String.format("%03d", i) + outputState)
 		if (i <= 32) {
-			taskStatus([Message: "    ${String.format("%03d", i)}", State: "off"])
+			taskStatus([Message: "    " + String.format("%03d", i), State: "off"])
 		}
 	}
 }
 
-def lightingDeviceStatus(message) {
+def lightingDeviceStatus(String message) {
 	ifDebug("LightStatus: ")
 	String deviceNumber = message.substring(4, 7)
 	String deviceState = message.substring(7, 8)
 }
 
-def logData(message) {
+def logData(String message) {
 	String eventCode = message.substring(4, 8)
 	String eventValue = elkResponses[eventCode]
 	if(eventValue != null) {
@@ -616,38 +610,42 @@ def logData(message) {
 	}
 }
 
-def temperatureData(message) {
+def temperatureData(String message) {
 	int number
 	String zoneNumber
 	def zoneDevice
-	for (int i = 4; i <= 50; i +=3 ) {
+	int i
+	int zoneInt
+	for (i = 4; i <= 50; i +=3 ) {
 		number = message.substring(i, i + 3).toInteger()
 		if (number > 0) {
-			zoneNumber = String.format("%03d", (i - 1) / 3)
+			zoneInt = (i - 1) / 3
+			zoneNumber = String.format("%03d", zoneInt)
 			number = number - 40
 			ifDebug("Keypad ${zoneNumber} temp: ${number}")
 			zoneDevice = getChildDevice("${device.deviceNetworkId}_P_${zoneNumber}")
-			if (zoneDevice?.capabilities.find { it.name == "TemperatureMeasurement" } != null) {
+			if (zoneDevice?.capabilities?.find { it.name == "TemperatureMeasurement" } != null) {
 				zoneDevice.sendEvent(name: "temperature", value: number)
 			}
 		}
 	}
 
-	for (int i = 52; i <= 98; i +=3 ) {
+	for (i = 52; i <= 98; i +=3 ) {
 		number = message.substring(i, i + 3).toInteger()
 		if (number > 0) {
-			zoneNumber = String.format("%03d", (i - 49) / 3)
+			zoneInt = (i - 49) / 3
+			zoneNumber = String.format("%03d", zoneInt)
 			number = number - 60
 			ifDebug("Zone ${zoneNumber} temp: ${number}")
 			zoneDevice = getChildDevice("${device.deviceNetworkId}_Z_${zoneNumber}")
-			if (zoneDevice?.capabilities.find { it.name == "TemperatureMeasurement" } != null) {
+			if (zoneDevice?.capabilities?.find { it.name == "TemperatureMeasurement" } != null) {
 				zoneDevice.sendEvent(name: "temperature", value: number)
 			}
 		}
 	}
 }
 
-def stringDescription(message) {
+def stringDescription(String message) {
 	String zoneNumber = message.substring(6, 9)
 	if(zoneNumber != "000") {
 		String zoneName
@@ -664,7 +662,7 @@ def stringDescription(message) {
 	}
 }
 
-def statusTemperature(message) {
+def statusTemperature(String message) {
 	ifDebug("ReplyRequestedTemp: ")
 	String group = message.substring(4, 5)
 	group = elkTempTypes[group]
@@ -672,13 +670,13 @@ def statusTemperature(message) {
 	String temp = message.substring(8, 11)
 }
 
-def taskChange(message) {
+def taskChange(String message) {
 	taskStatus([Message: message, State: "on"])
 	runIn(2, "taskStatus", [data: [Message: message, State: "off"]])
 }
 
 //Zone Status (Currently working on this)
-def thermostatData(message) {
+def thermostatData(String message) {
 	String deviceNetworkId
 	def zoneDevice
 	def ElkM1DNI = device.deviceNetworkId
@@ -710,20 +708,22 @@ def thermostatData(message) {
 	}
 }
 
-def zoneDefinitionReport(message) {
+def zoneDefinitionReport(String message) {
 	String zoneString
 	String zoneDefinitions = message.substring(4, 212)
+	int i
 	for (i = 1; i <= 208; i++) {
 		zoneString = elkZoneDefinitions[zoneDefinitions.substring(i - 1, i)]
 		if (zoneString != null && zoneString != Disabled) {
-			ifDebug("ZoneDefinitions: " + "Zone " + i + " - " + zoneString)
+			ifDebug("ZoneDefinitions: Zone " + i + " - " + zoneString)
 		}
 	}
 }
 
-def zoneStatusReport(message) {
+def zoneStatusReport(String message) {
 	String zoneString = message.substring(4, 212)
 	String zoneStatus
+	int i
 	for (i = 1; i <= 208; i++) {
 		zoneStatus = zoneString.substring(i - 1, i)
 		if (zoneStatus != null && zoneStatus != "0") {
@@ -734,7 +734,7 @@ def zoneStatusReport(message) {
 }
 
 // Zone Status
-def zoneViolated(message) {
+def zoneViolated(String message) {
 	int substringCount = (message.length()-8)
 	def zoneDevice = getChildDevice("${device.deviceNetworkId}_Z_${message.substring(substringCount).take(3)}")
 	if (zoneDevice == null) { // For backwards capability
@@ -743,7 +743,7 @@ def zoneViolated(message) {
 	if (zoneDevice == null) { // For backwards capability
 		zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${message.substring(substringCount).take(3)}")
 	}
-	
+
 	if (zoneDevice != null) {
 		def cmdList = zoneDevice.supportedCommands
 		if (cmdList.find { it.name == "open" } != null) {
@@ -835,7 +835,7 @@ def zoneViolated(message) {
 	}
 }
 
-def zoneNormal(message) {
+def zoneNormal(String message) {
 	int substringCount = (message.length()-8)
 	def zoneDevice = getChildDevice("${device.deviceNetworkId}_Z_${message.substring(substringCount).take(3)}")
 	if (zoneDevice == null) { // For backwards capability
@@ -934,18 +934,18 @@ def zoneNormal(message) {
 def taskStatus(data) {
 	String taskNumber = data.Message.substring(4, 7)
 	def zoneDevice = getChildDevice(device.deviceNetworkId + "_K_" + taskNumber)
-	ifDebug("Task Change Update: ${taskNumber} - ${data.State}")
 	if (zoneDevice != null) {
+		ifDebug("Task Change Update: ${taskNumber} - ${data.State}")
 //		if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}) {
-			if (data.State == "off") {
-				zoneDevice.sendEvent(name: "switch", value: data.State)
-			}
-			else {
-				zoneDevice.sendEvent(name: "switch", value: data.State, isStateChange: true)
-			}
-			if (data.State == "on" && zoneDevice.hasCommand("writeLog")) {
-				zoneDevice.writeLog()
-			}
+		if (data.State == "off") {
+			zoneDevice.sendEvent(name: "switch", value: data.State)
+		}
+		else {
+			zoneDevice.sendEvent(name: "switch", value: data.State, isStateChange: true)
+		}
+		if (data.State == "on" && zoneDevice.hasCommand("writeLog")) {
+			zoneDevice.writeLog()
+		}
 //		}
 	}
 }
@@ -961,12 +961,12 @@ def createZone(zoneInfo){
 		if (zoneName == null) {
 			zoneName = "Zone " + zoneNumber + " - " + zoneInfo.zoneText
 		}
-		if (getChildDevice("${device.deviceNetworkId}_C_${zoneNumber}") == null && getChildDevice("{$device.deviceNetworkId}_M_${zoneNumber}") == null && 
+		if (getChildDevice("${device.deviceNetworkId}_C_${zoneNumber}") == null && getChildDevice("{$device.deviceNetworkId}_M_${zoneNumber}") == null &&
 				getChildDevice("${device.deviceNetworkId}_Z_${zoneNumber}") == null) {
 			deviceNetworkId = "${device.deviceNetworkId}_Z_${zoneNumber}"
 			if (zoneName ==~ /(?i).*motion.*/) {
 				log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Motion"
-		 		addChildDevice("hubitat", "Virtual Motion Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+				addChildDevice("hubitat", "Virtual Motion Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
 				def newDevice = getChildDevice(deviceNetworkId)
 				newDevice.updateSetting("autoInactive",[type:"enum", value:0])
 				newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
@@ -1049,7 +1049,7 @@ def removeZone(zoneInfo) {
 	deleteChildDevice(zoneInfo.deviceNetworkId)
 }
 
-def setMode(armMode, setArm, armStatus) {
+def setMode(String armMode, String setArm, String armStatus) {
 	if (state.armStatus != armStatus) {
 		state.armStatus = armStatus
 		sendEvent(name:"ArmStatus", value: armStatus, displayed:false, isStateChange: true)
@@ -1099,7 +1099,7 @@ def setMode(armMode, setArm, armStatus) {
 //}
 
 //Telnet
-def getReTry(Boolean inc) {
+int getReTry(Boolean inc) {
 	int reTry = (state.reTryCount ?: 0).toInteger()
 	if (inc) reTry++
 	state.reTryCount = reTry
@@ -1112,13 +1112,18 @@ def telnetStatus(String status){
 		getReTry(true)
 		log.error "Telnet connection dropped..."
 		initialize()
-	} 
+	}
 	else {
 		log.warn "Telnet is restarting..."
 	}
 }
 
-private ifDebug(msg)
+private ifDebug(String msg)
+{
+	parent.ifDebug('Connection Driver: ' + msg)
+}
+
+private ifDebug(GString msg)
 {
 	parent.ifDebug('Connection Driver: ' + msg)
 }
@@ -1201,78 +1206,78 @@ private ifDebug(msg)
 
 // Event Mapping
 @Field final Map 	elkResponses = [
-	'1000': NoEvent,
-	'1001': FIREALARM,
-	'1002': FIRESUPERVISORYALARM,
-	'1003': BURGLARALARMANYAREA,
-	'1004': MEDICALALARMANYAREA,
-	'1005': POLICEALARMANYAREA,
-	'1006': AUX124HRANYAREA,
-	'1007': AUX224HRANYAREA,
-	'1008': CARBONMONOXIDEALARMANYAREA,
-	'1009': EMERGENCYALARMANYAREA,
-	'1010': FREEZEALARMANYAREA,
-	'1011': GASALARMANYAREA,
-	'1012': HEATALARMANYAREA,
-	'1013': WATERALARMANYAREA,
-	'1014': ALARMANYAREA,
-	'1111': CODELOCKOUTANYKEYPAD,
-	'1128': FIRETROUBLEANYZONE,
-	'1129': BURGLARTROUBLEANYZONE,
-	'1130': FAILTOCOMMUNICATETROUBLE,
-	'1131': RFSENSORLOWBATTERYTROUBLE,
-	'1132': LOSTANCMODULETROUBLE,
-	'1133': LOSTKEYPADTROUBLE,
-	'1134': LOSTINPUTEXPANDERTROUBLE,
-	'1135': LOSTOUTPUTEXPANDERTROUBLE,
-	'1136': EEPROMMEMORYERRORTROUBLE,
-	'1137': FLASHMEMORYERRORTROUBLE,
-	'1138': ACFAILURETROUBLE,
-	'1139': CONTROLLOWBATTERYTROUBLE,
-	'1140': CONTROLOVERCURRENTTROUBLE,
-	'1141': EXPANSIONMODULETROUBLE,
-	'1142': OUTPUT2SUPERVISORYTROUBLE,
-	'1143': TELEPHONELINEFAULTTROUBLE1,
-	'1144': RESTOREFIREZONE,
-	'1145': RESTOREFIRESUPERVISORYZONE,
-	'1146': RESTOREBURGLARZONE,
-	'1147': RESTOREMEDICALZONE,
-	'1148': RESTOREPOLICEZONE,
-	'1149': RESTOREAUX124HRZONE,
-	'1150': RESTOREAUX224HRZONE,
-	'1151': RESTORECOZONE,
-	'1152': RESTOREEMERGENCYZONE,
-	'1153': RESTOREFREEZEZONE,
-	'1154': RESTOREGASZONE,
-	'1155': RESTOREHEATZONE,
-	'1156': RESTOREWATERZONE,
-	'1157': COMMUNICATIONFAILRESTORE,
-	'1158': ACFAILRESTORE,
-	'1159': LOWBATTERYRESTORE,
-	'1160': CONTROLOVERCURRENTRESTORE,
-	'1161': EXPANSIONMODULERESTORE,
-	'1162': OUTPUT2RESTORE,
-	'1163': TELEPHONELINERESTORE,
-	'1164': ALARMMEMORYANYAREA,
-	'1173': AREAARMED,
-	'1174': AREADISARMED,
-	'1175': AREA1ARMSTATE,
-	'1183': AREA1ISARMEDAWAY,
-	'1191': AREA1ISARMEDSTAY,
-	'1199': AREA1ISARMEDSTAYINSTANT,
-	'1207': AREA1ISARMEDNIGHT,
-	'1215': AREA1ISARMEDNIGHTINSTANT,
-	'1223': AREA1ISARMEDVACATION,
-	'1231': AREA1ISFORCEARMED,
-	'1239': ZONEBYPASSED,
-	'1240': ZONEUNBYPASSED,
-	'1241': ANYBURGLARZONEISFAULTED,
-	'1242': BURGLARSTATUSOFALLAREAS,
-	'1251': AREA1CHIMEMODE,
-	'1259': AREA1CHIMEALERT,
-	'1267': ENTRYDELAYANYAREA,
-	'1276': EXITDELAYANYAREA,
-	'1285': AREA1EXITDELAYENDS
+		'1000': NoEvent,
+		'1001': FIREALARM,
+		'1002': FIRESUPERVISORYALARM,
+		'1003': BURGLARALARMANYAREA,
+		'1004': MEDICALALARMANYAREA,
+		'1005': POLICEALARMANYAREA,
+		'1006': AUX124HRANYAREA,
+		'1007': AUX224HRANYAREA,
+		'1008': CARBONMONOXIDEALARMANYAREA,
+		'1009': EMERGENCYALARMANYAREA,
+		'1010': FREEZEALARMANYAREA,
+		'1011': GASALARMANYAREA,
+		'1012': HEATALARMANYAREA,
+		'1013': WATERALARMANYAREA,
+		'1014': ALARMANYAREA,
+		'1111': CODELOCKOUTANYKEYPAD,
+		'1128': FIRETROUBLEANYZONE,
+		'1129': BURGLARTROUBLEANYZONE,
+		'1130': FAILTOCOMMUNICATETROUBLE,
+		'1131': RFSENSORLOWBATTERYTROUBLE,
+		'1132': LOSTANCMODULETROUBLE,
+		'1133': LOSTKEYPADTROUBLE,
+		'1134': LOSTINPUTEXPANDERTROUBLE,
+		'1135': LOSTOUTPUTEXPANDERTROUBLE,
+		'1136': EEPROMMEMORYERRORTROUBLE,
+		'1137': FLASHMEMORYERRORTROUBLE,
+		'1138': ACFAILURETROUBLE,
+		'1139': CONTROLLOWBATTERYTROUBLE,
+		'1140': CONTROLOVERCURRENTTROUBLE,
+		'1141': EXPANSIONMODULETROUBLE,
+		'1142': OUTPUT2SUPERVISORYTROUBLE,
+		'1143': TELEPHONELINEFAULTTROUBLE1,
+		'1144': RESTOREFIREZONE,
+		'1145': RESTOREFIRESUPERVISORYZONE,
+		'1146': RESTOREBURGLARZONE,
+		'1147': RESTOREMEDICALZONE,
+		'1148': RESTOREPOLICEZONE,
+		'1149': RESTOREAUX124HRZONE,
+		'1150': RESTOREAUX224HRZONE,
+		'1151': RESTORECOZONE,
+		'1152': RESTOREEMERGENCYZONE,
+		'1153': RESTOREFREEZEZONE,
+		'1154': RESTOREGASZONE,
+		'1155': RESTOREHEATZONE,
+		'1156': RESTOREWATERZONE,
+		'1157': COMMUNICATIONFAILRESTORE,
+		'1158': ACFAILRESTORE,
+		'1159': LOWBATTERYRESTORE,
+		'1160': CONTROLOVERCURRENTRESTORE,
+		'1161': EXPANSIONMODULERESTORE,
+		'1162': OUTPUT2RESTORE,
+		'1163': TELEPHONELINERESTORE,
+		'1164': ALARMMEMORYANYAREA,
+		'1173': AREAARMED,
+		'1174': AREADISARMED,
+		'1175': AREA1ARMSTATE,
+		'1183': AREA1ISARMEDAWAY,
+		'1191': AREA1ISARMEDSTAY,
+		'1199': AREA1ISARMEDSTAYINSTANT,
+		'1207': AREA1ISARMEDNIGHT,
+		'1215': AREA1ISARMEDNIGHTINSTANT,
+		'1223': AREA1ISARMEDVACATION,
+		'1231': AREA1ISFORCEARMED,
+		'1239': ZONEBYPASSED,
+		'1240': ZONEUNBYPASSED,
+		'1241': ANYBURGLARZONEISFAULTED,
+		'1242': BURGLARSTATUSOFALLAREAS,
+		'1251': AREA1CHIMEMODE,
+		'1259': AREA1CHIMEALERT,
+		'1267': ENTRYDELAYANYAREA,
+		'1276': EXITDELAYANYAREA,
+		'1285': AREA1EXITDELAYENDS
 ]
 
 
@@ -1285,13 +1290,13 @@ private ifDebug(msg)
 @Field static final String ArmedtoVacation = "Armed To Vacation"
 
 @Field final Map	elkArmStatuses = [
-  '0': Disarmed,
-  '1': ArmedAway,
-  '2': ArmedStay,
-  '3': ArmedStayInstant,
-  '4': ArmedtoNight,
-  '5': ArmedtoNightInstant,
-  '6': ArmedtoVacation
+		'0': Disarmed,
+		'1': ArmedAway,
+		'2': ArmedStay,
+		'3': ArmedStayInstant,
+		'4': ArmedtoNight,
+		'5': ArmedtoNightInstant,
+		'6': ArmedtoVacation
 ]
 @Field static final String NotReadytoArm = "Not Ready to Arm"
 @Field static final String ReadytoArm = "Ready to Arm"
@@ -1302,13 +1307,13 @@ private ifDebug(msg)
 @Field static final String ArmedwithaBypass = "Armed with a Bypass"
 
 @Field final Map	elkArmUpStates = [
-  '0': NotReadytoArm,
-  '1': ReadytoArm,
-  '2': ReadytoArmBut,
-  '3': ArmedwithExit,
-  '4': ArmedFully,
-  '5': ForceArmed,
-  '6': ArmedwithaBypass
+		'0': NotReadytoArm,
+		'1': ReadytoArm,
+		'2': ReadytoArmBut,
+		'3': ArmedwithExit,
+		'4': ArmedFully,
+		'5': ForceArmed,
+		'6': ArmedwithaBypass
 ]
 
 @Field static final String NoActiveAlarm = "No Active Alarm"
@@ -1332,25 +1337,25 @@ private ifDebug(msg)
 @Field static final String FireVerified = "Fire Verified"
 
 @Field final Map	elkAlarmStates = [
-  '0': NoActiveAlarm,
-  '1': EntranceDelayisActive,
-  '2': AlarmAbortDelayActive,
-  '3': FireAlarm,
-  '4': MedicalAlarm,
-  '5': PoliceAlarm,
-  '6': BurgularAlarm,
-  '7': AuxAlarm1,
-  '8': AuxAlarm2,
-  '9': AuxAlarm3,
-  ':': AuxAlarm4,
-  ';': CarbonMonoxide,
-  '<': EmergencyAlarm,
-  '=': FreezeAlarm,
-  '>': GasAlarm,
-  '?': HeatAlarm,
-  '@': WaterAlarm,
-  'A': FireSupervisory,
-  'B': FireVerified
+		'0': NoActiveAlarm,
+		'1': EntranceDelayisActive,
+		'2': AlarmAbortDelayActive,
+		'3': FireAlarm,
+		'4': MedicalAlarm,
+		'5': PoliceAlarm,
+		'6': BurgularAlarm,
+		'7': AuxAlarm1,
+		'8': AuxAlarm2,
+		'9': AuxAlarm3,
+		':': AuxAlarm4,
+		';': CarbonMonoxide,
+		'<': EmergencyAlarm,
+		'=': FreezeAlarm,
+		'>': GasAlarm,
+		'?': HeatAlarm,
+		'@': WaterAlarm,
+		'A': FireSupervisory,
+		'B': FireVerified
 ]
 
 // Zone Status Mapping Readable Text
@@ -1372,21 +1377,21 @@ private ifDebug(msg)
 
 // Zone Status Mapping
 @Field final Map	elkZoneStatuses = [
-  '0': NormalUnconfigured,
-  '1': NormalOpen,
-  '2': NormalEOL,
-  '3': NormalShort,
-  '5': TroubleOpen,
-  '6': TroubleEOL,
-  '7': TroubleShort,
-  '8': notused,
-  '9': ViolatedOpen,
-  'A': ViolatedEOL,
-  'B': ViolatedShort,
-  'C': SoftBypassed,
-  'D': BypassedOpen,
-  'E': BypassedEOL,
-  'F': BypassedShort
+		'0': NormalUnconfigured,
+		'1': NormalOpen,
+		'2': NormalEOL,
+		'3': NormalShort,
+		'5': TroubleOpen,
+		'6': TroubleEOL,
+		'7': TroubleShort,
+		'8': notused,
+		'9': ViolatedOpen,
+		'A': ViolatedEOL,
+		'B': ViolatedShort,
+		'C': SoftBypassed,
+		'D': BypassedOpen,
+		'E': BypassedEOL,
+		'F': BypassedShort
 
 ]
 
@@ -1394,22 +1399,22 @@ private ifDebug(msg)
 @Field static final String On = "on"
 
 @Field final Map	elkOutputStates = [
-  "0": Off,
-  "1": On
+		"0": Off,
+		"1": On
 ]
 
 @Field static final String Fahrenheit = "Fahrenheit"
 @Field static final String Celcius = "Celcius"
 
 @Field final Map	elkTemperatureModes = [
-  F: Fahrenheit,
-  C: Celcius
+		F: Fahrenheit,
+		C: Celcius
 ]
 
 @Field static final String User = "User"
 
 @Field final Map	elkUserCodeTypes = [
-  1: User,
+		1: User,
 ]
 
 @Field static final String ZoneName = "Zone Name"
@@ -1433,24 +1438,24 @@ private ifDebug(msg)
 
 
 @Field final Map	elkTextDescriptionsTypes = [
-'0': ZoneName,
-'1': AreaName,
-'2': UserName,
-'3': Keypad,
-'4': OutputName,
-'5': TaskName,
-'6': TelephoneName,
-'7': LightName,
-'8': AlarmDurationName,
-'9': CustomSettings,
-'10': CountersNames,
-'11': ThermostatNames,
-'12': FunctionKey1Name,
-'13': FunctionKey2Name,
-'14': FunctionKey3Name,
-'15': FunctionKey4Name,
-'16': FunctionKey5Name,
-'17': FunctionKey6Name
+		'0': ZoneName,
+		'1': AreaName,
+		'2': UserName,
+		'3': Keypad,
+		'4': OutputName,
+		'5': TaskName,
+		'6': TelephoneName,
+		'7': LightName,
+		'8': AlarmDurationName,
+		'9': CustomSettings,
+		'10': CountersNames,
+		'11': ThermostatNames,
+		'12': FunctionKey1Name,
+		'13': FunctionKey2Name,
+		'14': FunctionKey3Name,
+		'15': FunctionKey4Name,
+		'16': FunctionKey5Name,
+		'17': FunctionKey6Name
 ]
 
 
@@ -1459,9 +1464,9 @@ private ifDebug(msg)
 @Field static final String Thermostats = "Thermostats"
 
 @Field final Map	elkTempTypes = [
-0: TemperatureProbe,
-1: Keypads,
-2: Thermostats
+		0: TemperatureProbe,
+		1: Keypads,
+		2: Thermostats
 ]
 
 //NEW CODE
@@ -1469,6 +1474,7 @@ private ifDebug(msg)
 @Field static final String heat = "heat"
 @Field static final String cool = "cool"
 @Field static final String auto = "auto"
+@Field static final String circulate = "circulate"
 @Field static final String emergencyHeat = "emergency Heat"
 @Field static final String False = "False"
 @Field static final String True = "True"
@@ -1480,60 +1486,60 @@ private ifDebug(msg)
 @Field final Map 	elkThermostatHold = ['0': False, '1': True]
 @Field final Map 	elkThermostatFan = ['0': FanAuto, '1': Fanturnedon]
 
-@Field final Map 	elkThermostatModeSet = [off: '0', heat: '1', cool: '2', auto: '3', emergencyHeat: '4']
-@Field final Map 	elkThermostatFanModeSet = [auto: '0', on: '1']
+@Field final Map 	elkThermostatModeSet = [off: '0', heat: '1', cool: '2', auto: '3', 'emergency heat': '4']
+@Field final Map 	elkThermostatFanModeSet = [auto: '0', on: '1', circulate: '0']
 
 
 @Field final Map	elkCommands = [
 
-			Disarm: "a0",
-			ArmAway: "a1",
-			ArmHome: "a2",
-			ArmStayInstant: "a3",
-			ArmNight: "a4",
-			ArmNightInstant: "a5",
-			ArmVacation: "a6",
-			ArmStepAway: "a7",
-			ArmStepStay: "a8",
-			RequestArmStatus: "as",
-			AlarmByZoneRequest: "az",
-			RequestTemperatureData: "lw",
-			RequestRealTimeClockRead: "rr",
-			RealTimeClockWrite: "rw",
-			RequestTextDescriptions: "sd",
-			Speakphrase: "sp",
-			RequestSystemTroubleStatus: "ss",
-			Requesttemperature: "st",
-			Speakword: "sw",
-			TaskActivation: "tn",
-			RequestThermostatData: "tr",
-			SetThermostatData: "ts",
-			Requestusercodeareas: "ua",
-			requestVersionNumberofM1: "vn",
-			ReplyfromEthernettest: "xk",
-			Zonebypassrequest: "zb",
-			RequestZoneDefinitions: "zd",
-			Zonepartitionrequest: "zp",
-			RequestZoneStatus: "zs",
-			RequestZoneanalogvoltage: "zv",
-			SetThermostatData: "ts",
-			setHeatingSetpoint: "ts",
-			setCoolingSetpoint: "ts",
-			setThermostatSetpoint: "ts",
-			setThermostatFanMode: "ts",
-			setThermostatMode: "ts",
-			auto: "ts",
-			cool: "ts",
-			emergencyHeat: "ts",
-			fanAuto: "ts",
-//			fanCirculate: "ts",
-			fanOn: "ts",
-			heat: "ts",
-			off: "ts",
-			ControlOutputOn: "cn",
-			ControlOutputOff: "cf",
-			ControlOutputToggle: "ct",
-			RequestOutputStatus: "cs"
+		Disarm: "a0",
+		ArmAway: "a1",
+		ArmHome: "a2",
+		ArmStayInstant: "a3",
+		ArmNight: "a4",
+		ArmNightInstant: "a5",
+		ArmVacation: "a6",
+		ArmStepAway: "a7",
+		ArmStepStay: "a8",
+		RequestArmStatus: "as",
+		AlarmByZoneRequest: "az",
+		RequestTemperatureData: "lw",
+		RequestRealTimeClockRead: "rr",
+		RealTimeClockWrite: "rw",
+		RequestTextDescriptions: "sd",
+		Speakphrase: "sp",
+		RequestSystemTroubleStatus: "ss",
+		Requesttemperature: "st",
+		Speakword: "sw",
+		TaskActivation: "tn",
+		RequestThermostatData: "tr",
+		SetThermostatData: "ts",
+		Requestusercodeareas: "ua",
+		requestVersionNumberofM1: "vn",
+		ReplyfromEthernettest: "xk",
+		Zonebypassrequest: "zb",
+		RequestZoneDefinitions: "zd",
+		Zonepartitionrequest: "zp",
+		RequestZoneStatus: "zs",
+		RequestZoneanalogvoltage: "zv",
+		SetThermostatData: "ts",
+		setHeatingSetpoint: "ts",
+		setCoolingSetpoint: "ts",
+		setThermostatSetpoint: "ts",
+		setThermostatFanMode: "ts",
+		setThermostatMode: "ts",
+		auto: "ts",
+		cool: "ts",
+		emergencyHeat: "ts",
+		fanAuto: "ts",
+		fanCirculate: "ts",
+		fanOn: "ts",
+		heat: "ts",
+		off: "ts",
+		ControlOutputOn: "cn",
+		ControlOutputOff: "cf",
+		ControlOutputToggle: "ct",
+		RequestOutputStatus: "cs"
 ]
 
 @Field static final String Disabled = "Disabled"
@@ -1562,43 +1568,43 @@ private ifDebug(msg)
 @Field static final String IntercomKey = "Intercom Key"
 
 @Field final Map	elkZoneDefinitions = [
-'0': Disabled,
-'1': BurglarEntryExit1,
-'2': BurglarEntryExit2,
-'3': BurglarPerimeterInstant,
-'4': BurglarInterior,
-'5': BurglarInteriorFollower,
-'6': BurglarInteriorNight,
-'7': BurglarInteriorNightDelay,
-'8': Burglar24Hour,
-'9': BurglarBoxTamper,
-':': FireAlarm,
-';': FireVerified,
-'<': FireSupervisory,
-'=': AuxAlarm1,
-'>': AuxAlarm2,
-'?': Keyfob,
-'@': NonAlarm,
-'A': CarbonMonoxide,
-'B': EmergencyAlarm,
-'C': FreezeAlarm,
-'D': GasAlarm,
-'E': HeatAlarm,
-'F': MedicalAlarm,
-'G': PoliceAlarm,
-'H': PoliceNoIndication,
-'I': WaterAlarm,
-'J': KeyMomentaryArmDisarm,
-'K': KeyMomentaryArmAway,
-'L': KeyMomentaryArmStay,
-'M': KeyMomentaryDisarm,
-'N': KeyOnOff,
-'O': MuteAudibles,
-'P': PowerSupervisory,
-'Q': Temperature,
-'R': AnalogZone,
-'S': PhoneKey,
-'T': IntercomKey
+		'0': Disabled,
+		'1': BurglarEntryExit1,
+		'2': BurglarEntryExit2,
+		'3': BurglarPerimeterInstant,
+		'4': BurglarInterior,
+		'5': BurglarInteriorFollower,
+		'6': BurglarInteriorNight,
+		'7': BurglarInteriorNightDelay,
+		'8': Burglar24Hour,
+		'9': BurglarBoxTamper,
+		':': FireAlarm,
+		';': FireVerified,
+		'<': FireSupervisory,
+		'=': AuxAlarm1,
+		'>': AuxAlarm2,
+		'?': Keyfob,
+		'@': NonAlarm,
+		'A': CarbonMonoxide,
+		'B': EmergencyAlarm,
+		'C': FreezeAlarm,
+		'D': GasAlarm,
+		'E': HeatAlarm,
+		'F': MedicalAlarm,
+		'G': PoliceAlarm,
+		'H': PoliceNoIndication,
+		'I': WaterAlarm,
+		'J': KeyMomentaryArmDisarm,
+		'K': KeyMomentaryArmAway,
+		'L': KeyMomentaryArmStay,
+		'M': KeyMomentaryDisarm,
+		'N': KeyOnOff,
+		'O': MuteAudibles,
+		'P': PowerSupervisory,
+		'Q': Temperature,
+		'R': AnalogZone,
+		'S': PhoneKey,
+		'T': IntercomKey
 ]
 
 //Not currently using this
@@ -1654,141 +1660,144 @@ private ifDebug(msg)
 'H': AlertPoliceNoIndication,
 'I': AlertWaterAlarm
 ]
-	
+
 /***********************************************************************************************************************
-*
-* Release Notes (see Known Issues Below)
-*
-* 0.1.28
-* Added ability to handle a zone with a Temperature Probe attached to the main board. Automatically assigned when
-*   the zone's description has the word "Temperature" in it or zone device can be manually changed.
-* Added the device type Keypad for temperature readings.
-* Both devices are assigned the Virtual Temperature Sensor driver.  This is an experimental feature.  Since the panel
-*   does not volunteer temperature data, it must be requested either manually for all devices using the Request Temperature
-*   Data button on the main driver or by setting up a rule to periodically execute the RequestTemperatureData command.
-* Added "ContactSensor" as a capability for HSM monitoring.  The contact will open if a Burglar Alarm or Police Alarm is triggered.
-* Changed the method of importing devices to greatly improve performance and reduce panel communication.
-* Fixed an issue not deleting child devices when the main driver is uninstalled.
-* Fixed an issue with the name when importing a device with the "Show On Keypad" flag set.
-*
-* 0.1.27
-* You can now change the port on the main device page.  You must click "Initialize" after you save preferences to take effect
-* Changed info logging to only happen if Enable descriptionText logging is turned on the device
-* Reenabled Request Zone Definition and Request Zone Status
-* Added Request Output Status
-*
-* 0.1.26
-* Added info logging when output or task status changes or Arm Mode changes
-* Added switch capability to main Elk M1 driver
-* Improved ArmStatus and AlarmState events to fire only when changed
-* Adding missing AlarmStates
-* Small tweaks to improve performance
-*
-* 0.1.25
-* Added sync of Elk M1 modes to Location Modes: Disarmed, Armed Away, Night, Stay, Vacation synced to modes Home, Away, Night, 
-*    Stay (if available and Home if not), Vacation (if available and Away if not), respectively.
-* Added sync of hsmSetArm modes of disarm, armAway, armNight, ArmHome
-* Retooled zone-device creation to always create a device of type Virtual Contact unless "motion" is in the description.
-* Fixed issue that would create a lot of bogus devices when you connect to the panel with the M1 Touch Pro app
-* Added auto zone-device capability detection to support virtual devices with the following capabilities:
-*     ContactSensor, MotionSensor, SmokeDetector, CarbonMonoxideDetector, WaterSensor, TamperAlert, AccelerationSensor, 
-*     Beacon, PresenceSensor, RelaySwitch, ShockSensor, SleepSensor, SoundSensor, Switch, TouchSensor and Valve
-* Changed registration of arm mode event to happen upon entry/exit timer expiration
-* Fixed issue of extra arm mode events firing when the panel is armed
-* Fixed status of EOL terminated zones
-* Added ability to read task status from the panel and set Contact device to open temporarily.
-* Tested use of the Elk C1M1 dual path communicator over local ethernet instead of using the M1XEP
-* Added setting of LastUser event which contains the user number who last triggered armed or disarmed
-*
-* 0.1.24
-* Rerouted some code for efficiency
-* Turned off some of the extra debugging
-*
-* 0.1.23
-* Outputs are now functional with Rule Machine
-* Change switch case to else if statements
-*
-* 0.1.22
-* Fixed code to show operating state and thermostat setpoint on dashboard tile
-* Reorder some code to see if it helps with some delay issues
-* Consolidated code for zone open and zone closed to see if it helps with some delay issues (need to check if this has any other impact elsewhere)
-*
-* 0.1.21
-* Updated mapping for output reporting code
-* Changed Reply Arming Status Report Data to work as Area 1 only and to report current states
-*
-* 0.1.20
-* Added back some code for 'Reply Arming Status Report Data (AS)' to clean up logging
-*
-* 0.1.19
-* Removed some code for 'Reply Arming Status Report Data (AS)' to clean up logging
-*
-* 0.1.18
-* Add support for Occupancy Sensors - this will be a work in progress since not sure how to code it
-*
-* 0.1.17
-* Changed devices 'isComponent' to 'False' - this will allow the removal of devices and changing of drivers
-*
-* 0.1.16
-* Changed the one import to be not case sensitive
-*
-* 0.1.15
-* Added support for manual inclusion of Elk M1 outputs and tasks
-* Added support for importing Elk M1 outputs, tasks and thermostats
-* Added better support for child devices (all communication goes through Elk M1 device)
-* Cleaned up some descriptions and instructions
-*
-* 0.1.14
-* Added support for importing Elk M1 zones
-* Fixed erroneous error codes
-* Added actuator capability to allow custom commands to work in dashboard and rule machine
-* Added command to request temperature data
-* 0.1.13
-* Elk M1 Code - No longer requires a 6 digit code (Add leading zeroes to 4 digit codes)
-* Outputs and tasks can now be entered as a number
-* Code clean up - removed some unused code
-* 0.1.12
-* Added support for outputs
-* 0.1.11
-* Built seperate thermostat child driver should allow for multiple thermostats
-* 0.1.10
-* Ability to control thermostat 1
-* 0.1.9
-* Minor changes
-* 0.1.8
-* Ability to read thermostat data (haven't confirmed multiple thermostat support)
-* Added additional mappings for thermostat support
-* Additional code clean up
-* 0.1.7
-* Rewrite of the various commands
-* 0.1.6
-* Changed text description mapping to string characters
-* 0.1.5
-* Added zone types
-* Added zone definitions
-* 0.1.4
-* Added additional command requests
-* 0.1.3
-* Receive status messages and interpret data
-* 0.1.2
-* Minor changes to script nomenclature and formating
-* 0.1.1
-* Abiltiy to connect Elk M1 and see data
-* Ability to send commands to Elk M1
-* Changed code to input parameter
-*
-***********************************************************************************************************************/
+ *
+ * Release Notes (see Known Issues Below)
+ *
+ * 0.1.29
+ * Strongly typed variables for performance
+ *
+ * 0.1.28
+ * Added ability to handle a zone with a Temperature Probe attached to the main board. Automatically assigned when
+ *   the zone's description has the word "Temperature" in it or zone device can be manually changed.
+ * Added the device type Keypad for temperature readings.
+ * Both devices are assigned the Virtual Temperature Sensor driver.  This is an experimental feature.  Since the panel
+ *   does not volunteer temperature data, it must be requested either manually for all devices using the Request Temperature
+ *   Data button on the main driver or by setting up a rule to periodically execute the RequestTemperatureData command.
+ * Added "ContactSensor" as a capability for HSM monitoring.  The contact will open if a Burglar Alarm or Police Alarm is triggered.
+ * Changed the method of importing devices to greatly improve performance and reduce panel communication.
+ * Fixed an issue not deleting child devices when the main driver is uninstalled.
+ * Fixed an issue with the name when importing a device with the "Show On Keypad" flag set.
+ *
+ * 0.1.27
+ * You can now change the port on the main device page.  You must click "Initialize" after you save preferences to take effect
+ * Changed info logging to only happen if Enable descriptionText logging is turned on the device
+ * Reenabled Request Zone Definition and Request Zone Status
+ * Added Request Output Status
+ *
+ * 0.1.26
+ * Added info logging when output or task status changes or Arm Mode changes
+ * Added switch capability to main Elk M1 driver
+ * Improved ArmStatus and AlarmState events to fire only when changed
+ * Adding missing AlarmStates
+ * Small tweaks to improve performance
+ *
+ * 0.1.25
+ * Added sync of Elk M1 modes to Location Modes: Disarmed, Armed Away, Night, Stay, Vacation synced to modes Home, Away, Night,
+ *    Stay (if available and Home if not), Vacation (if available and Away if not), respectively.
+ * Added sync of hsmSetArm modes of disarm, armAway, armNight, ArmHome
+ * Retooled zone-device creation to always create a device of type Virtual Contact unless "motion" is in the description.
+ * Fixed issue that would create a lot of bogus devices when you connect to the panel with the M1 Touch Pro app
+ * Added auto zone-device capability detection to support virtual devices with the following capabilities:
+ *     ContactSensor, MotionSensor, SmokeDetector, CarbonMonoxideDetector, WaterSensor, TamperAlert, AccelerationSensor,
+ *     Beacon, PresenceSensor, RelaySwitch, ShockSensor, SleepSensor, SoundSensor, Switch, TouchSensor and Valve
+ * Changed registration of arm mode event to happen upon entry/exit timer expiration
+ * Fixed issue of extra arm mode events firing when the panel is armed
+ * Fixed status of EOL terminated zones
+ * Added ability to read task status from the panel and set Contact device to open temporarily.
+ * Tested use of the Elk C1M1 dual path communicator over local ethernet instead of using the M1XEP
+ * Added setting of LastUser event which contains the user number who last triggered armed or disarmed
+ *
+ * 0.1.24
+ * Rerouted some code for efficiency
+ * Turned off some of the extra debugging
+ *
+ * 0.1.23
+ * Outputs are now functional with Rule Machine
+ * Change switch case to else if statements
+ *
+ * 0.1.22
+ * Fixed code to show operating state and thermostat setpoint on dashboard tile
+ * Reorder some code to see if it helps with some delay issues
+ * Consolidated code for zone open and zone closed to see if it helps with some delay issues (need to check if this has any other impact elsewhere)
+ *
+ * 0.1.21
+ * Updated mapping for output reporting code
+ * Changed Reply Arming Status Report Data to work as Area 1 only and to report current states
+ *
+ * 0.1.20
+ * Added back some code for 'Reply Arming Status Report Data (AS)' to clean up logging
+ *
+ * 0.1.19
+ * Removed some code for 'Reply Arming Status Report Data (AS)' to clean up logging
+ *
+ * 0.1.18
+ * Add support for Occupancy Sensors - this will be a work in progress since not sure how to code it
+ *
+ * 0.1.17
+ * Changed devices 'isComponent' to 'False' - this will allow the removal of devices and changing of drivers
+ *
+ * 0.1.16
+ * Changed the one import to be not case sensitive
+ *
+ * 0.1.15
+ * Added support for manual inclusion of Elk M1 outputs and tasks
+ * Added support for importing Elk M1 outputs, tasks and thermostats
+ * Added better support for child devices (all communication goes through Elk M1 device)
+ * Cleaned up some descriptions and instructions
+ *
+ * 0.1.14
+ * Added support for importing Elk M1 zones
+ * Fixed erroneous error codes
+ * Added actuator capability to allow custom commands to work in dashboard and rule machine
+ * Added command to request temperature data
+ * 0.1.13
+ * Elk M1 Code - No longer requires a 6 digit code (Add leading zeroes to 4 digit codes)
+ * Outputs and tasks can now be entered as a number
+ * Code clean up - removed some unused code
+ * 0.1.12
+ * Added support for outputs
+ * 0.1.11
+ * Built seperate thermostat child driver should allow for multiple thermostats
+ * 0.1.10
+ * Ability to control thermostat 1
+ * 0.1.9
+ * Minor changes
+ * 0.1.8
+ * Ability to read thermostat data (haven't confirmed multiple thermostat support)
+ * Added additional mappings for thermostat support
+ * Additional code clean up
+ * 0.1.7
+ * Rewrite of the various commands
+ * 0.1.6
+ * Changed text description mapping to string characters
+ * 0.1.5
+ * Added zone types
+ * Added zone definitions
+ * 0.1.4
+ * Added additional command requests
+ * 0.1.3
+ * Receive status messages and interpret data
+ * 0.1.2
+ * Minor changes to script nomenclature and formating
+ * 0.1.1
+ * Abiltiy to connect Elk M1 and see data
+ * Ability to send commands to Elk M1
+ * Changed code to input parameter
+ *
+ ***********************************************************************************************************************/
 /***********************************************************************************************************************
-*
-*Feature Request & Known Issues
-* I - Area is hard coded to 1
-* F - Import Zone data from Elk
-* F - Controls for thermostat 1 (mulitple)
-* F - Activate elk task by name (via dashboard button)
-* F - Lighting support (this is low priority for me since HE is handling my Zwave lights)
-* F - Thermostat setup page (currenty uses the zone map page)
-* I - Fan Circulate, emergency heat and set schedule not supported
-* F - Request text descriptions for zone setup, tasks and outputs
-* I - A device with the same device network ID exists (this is really not an issue)
-* 
-***********************************************************************************************************************/
+ *
+ *Feature Request & Known Issues
+ * I - Area is hard coded to 1
+ * F - Import Zone data from Elk
+ * F - Controls for thermostat 1 (mulitple)
+ * F - Activate elk task by name (via dashboard button)
+ * F - Lighting support (this is low priority for me since HE is handling my Zwave lights)
+ * F - Thermostat setup page (currenty uses the zone map page)
+ * I - Fan Circulate, emergency heat and set schedule not supported
+ * F - Request text descriptions for zone setup, tasks and outputs
+ * I - A device with the same device network ID exists (this is really not an issue)
+ *
+ ***********************************************************************************************************************/

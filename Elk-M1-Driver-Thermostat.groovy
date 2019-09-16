@@ -22,7 +22,7 @@
 ***See Release Notes at the bottom***
 ***********************************************************************************************************************/
 
-public static String version()      {  return "v0.1.4"  }
+public static String version()      {  return "v0.1.5"  }
 public static boolean isDebug() { return true }
 
     
@@ -33,122 +33,105 @@ metadata {
 	}
 }
 
-def RequestTemperatureData(){
- 	ifDebug("requestTemperatureData()")
-    def cmd = elkCommands["RequestTemperatureData"]
-	prepMsg2(cmd)
-}
-
 def RequestThermostatData(){
  	ifDebug("requestTstatData()")
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
  	ifDebug("requestTstatData()" + tstat)
 	getParent().RequestThermostatData(tstat)
 }
 //NEW CODE
-def setThermostatMode(thermostatmode){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
-	getParent().setThermostatMode(tstat, thermostatmode)
+def setThermostatMode(String thermostatmode){
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
+	getParent().setThermostatMode(thermostatmode, tstat)
 }
 def auto(){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
 	getParent().auto(tstat)
 }
 def heat(){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
 	getParent().heat(tstat)
 }
+def EmergencyHeat(){
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
+	getParent().EmergencyHeat(tstat)
+}
 def cool(){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
 	getParent().cool(tstat)
 }
 def off(){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
 	getParent().off(tstat)
 }
 def setThermostatFanMode(fanmode){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
-	getParent().setThermostatFanMode(tstat, fanmode)
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
+	getParent().setThermostatFanMode(fanmode, tstat)
 }
 def fanOn(){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
 	getParent().fanOn(tstat)
 }
 def fanAuto(){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
 	getParent().fanAuto(tstat)
 }
-def setHeatingSetpoint(degrees){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
-	getParent().setHeatingSetpoint(tstat, degrees)
+def fanCirculate(){
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
+	getParent().fanCirculate(tstat)
 }
-def setCoolingSetpoint(degrees){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
-	getParent().setCoolingSetpoint(tstat, degrees)
+def setHeatingSetpoint(BigDecimal degrees){
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
+	getParent().setHeatingSetpoint(degrees, tstat)
+}
+def setCoolingSetpoint(BigDecimal degrees){
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
+	getParent().setCoolingSetpoint(degrees, tstat)
 }
 def SetThermostatData(){
-	tstat = device.deviceNetworkId
-	substringCount = tstat.length()-3
-	tstat = tstat.substring(substringCount).take(3)
-	tstat = tstat.substring(1);
+	String tstat = device.deviceNetworkId
+	tstat = tstat.substring(tstat.length() - 2).take(2)
 	getParent().SetThermostatData()
 }
 	
-/***********************************************************************************************************************
-*
-* Release Notes (see Known Issues Below)
-*
-* 0.1.4
-* Rewrote code to use parent telnet
-*
-* 0.1.3
-* No longer requires a 6 digit code - Add leading zeroes to 4 digit codes
-* Code clean up
-* 0.1.2
-* Code clean up
-* 0.1.1
-* New child driver to support thermostats
-*
-***********************************************************************************************************************/
-/***********************************************************************************************************************
-*
-*Feature Request & Known Issues
-*
-* I - System configuration needs to be set up manually on the device page
-* F - Transfer System configuration from Elk M1 Application
-* I - Set Schedule not currently supported
-*
-***********************************************************************************************************************/
+ /***********************************************************************************************************************
+ *
+ * Release Notes (see Known Issues Below)
+ *
+ * 0.1.5
+ * Strongly typed variables for performance
+ *
+ * 0.1.4
+ * Rewrote code to use parent telnet
+ *
+ * 0.1.3
+ * No longer requires a 6 digit code - Add leading zeroes to 4 digit codes
+ * Code clean up
+ * 0.1.2
+ * Code clean up
+ * 0.1.1
+ * New child driver to support thermostats
+ *
+ ***********************************************************************************************************************/
+ /***********************************************************************************************************************
+ *
+ *Feature Request & Known Issues
+ *
+ * I - System configuration needs to be set up manually on the device page
+ * F - Transfer System configuration from Elk M1 Application
+ * I - Set Schedule not currently supported
+ *
+ ***********************************************************************************************************************/
