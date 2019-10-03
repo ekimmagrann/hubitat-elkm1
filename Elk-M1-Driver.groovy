@@ -19,18 +19,20 @@
  *  at other integrations on various platforms. I know someone else was working on an Elk driver that involved an ESP
  *  setup. This is a more direct route using equipment I already owned.
  *
- ***See Release Notes at the bottom***
+ *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
 public static String version() { return "v0.1.29" }
+
 public static boolean isDebug() { return true }
 import groovy.transform.Field
+
 //import java.util.regex.Matcher
 //import java.util.regex.Pattern
 
 
 metadata {
-	definition (name: "Elk M1 Driver", namespace: "belk", author: "Mike Magrann") {
+	definition(name: "Elk M1 Driver", namespace: "belk", author: "Mike Magrann") {
 		capability "Switch"
 		capability "Initialize"
 		capability "Telnet"
@@ -44,7 +46,7 @@ metadata {
 		command "ArmNightInstant"
 		command "ArmVacation"
 		command "RequestArmStatus"
-		command "ControlOutputOn", ["number","time"]
+		command "ControlOutputOn", ["number", "time"]
 		command "ControlOutputOff", ["number"]
 		command "ControlOutputToggle", ["number"]
 		command "TaskActivation", ["number"]
@@ -55,44 +57,52 @@ metadata {
 		command "RequestZoneDefinitions"
 		command "RequestZoneStatus"
 		command "RequestOutputStatus"
-		attribute	"ArmStatus", "string"
-		attribute	"ArmState", "string"
-		attribute	"AlarmState", "string"
-		attribute	"LastUser", "string"
-		attribute	"contact", "string"
-		attribute	"switch", "string"
+		attribute "ArmStatus", "string"
+		attribute "ArmState", "string"
+		attribute "AlarmState", "string"
+		attribute "LastUser", "string"
+		attribute "contact", "string"
+		attribute "switch", "string"
 	}
 	preferences {
-		input("ip", "text", title: "IP Address", description: "ip", required: true)
-		input("port", "text", title: "Port", description: "port", required: true)
-		input("passwd", "text", title: "Password", description: "password", required: true)
-		input("code", "text", title: "Code", description: "code", required: true)
+		input name: "ip", type: "text", title: "IP Address", description: "ip", required: true
+		input name: "port", type: "text", title: "Port", description: "port", required: true
+		input name: "passwd", type: "text", title: "Password", description: "password", required: true
+		input name: "code", type: "text", title: "Code", description: "code", required: true
+		input name: "dbgEnable", type: "bool", title: "Enable debug logging", defaultValue: false
+		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
 	}
 }
 
 //general handlers
 def installed() {
-	log.warn "installed..."
+	log.warn "${device.label} installed..."
 	initialize()
 }
 
 def updated() {
-	ifDebug("updated...")
-	ifDebug("Configuring IP: ${ip}, Port${port}, Code: ${code}, Password: ${passwd}")
+	log.info "${device.label} Updated..."
+	if (dbgEnable)
+		log.debug "${device.label}: Configuring IP: ${ip}, Port ${port}, Code: ${code}, Password: ${passwd}"
 	initialize()
 }
 
 def initialize() {
 	telnetClose()
+	boolean success = true
 	try {
 		//open telnet connection
-		telnetConnect([termChars:[13,10]], ip, port.toInteger(), null, null)
+		telnetConnect([termChars: [13, 10]], ip, port.toInteger(), null, null)
 		//give it a chance to start
 		pauseExecution(1000)
-		ifDebug("Telnet connection to Elk M1 established")
-		//poll()
-	} catch(e) {
-		log.warn "initialize error: ${e.message}"
+		if (dbgEnable)
+			log.debug "${device.label}: Telnet connection to Elk M1 established"
+	} catch (e) {
+		log.warn "${device.label}: initialize error: ${e.message}"
+		success = false
+	}
+	if (success) {
+		runIn(1, "poll")
 	}
 }
 
@@ -102,7 +112,19 @@ def uninstalled() {
 }
 
 private removeChildDevices(delete) {
-	delete.each {deleteChildDevice(it.deviceNetworkId)}
+	delete.each { deleteChildDevice(it.deviceNetworkId) }
+}
+
+def poll() {
+	runIn(1, "RequestThermostatData")
+	pauseExecution(1000)
+	runIn(1, "RequestTemperatureData")
+	pauseExecution(1000)
+	runIn(1, "RequestArmStatus")
+	pauseExecution(1000)
+	runIn(1, "RequestOutputStatus")
+	pauseExecution(1000)
+	runIn(1, "RequestZoneStatus")
 }
 
 //Elk M1 Command Line Request - Start of
@@ -115,99 +137,115 @@ hubitat.device.HubAction on() {
 }
 
 hubitat.device.HubAction Disarm() {
-	ifDebug("Disarm()")
+	if (dbgEnable)
+		log.debug "${device.label}: Disarm()"
 	String cmd = elkCommands["Disarm"]
 	prepMsg(cmd)
 }
 
 
 hubitat.device.HubAction ArmAway() {
-	ifDebug("ArmAway()")
+	if (dbgEnable)
+		log.debug "${device.label}: ArmAway()"
 	String cmd = elkCommands["ArmAway"]
 	prepMsg(cmd)
 }
 
 hubitat.device.HubAction ArmHome() {
-	ifDebug("armHome()")
+	if (dbgEnable)
+		"armHome()"
 	def cmd = elkCommands["ArmHome"]
 	prepMsg(cmd)
 }
 
 hubitat.device.HubAction ArmStayInstant() {
-	ifDebug("armStayInstant()")
+	if (dbgEnable)
+		log.debug "${device.label}: armStayInstant()"
 	String cmd = elkCommands["ArmStayInstant"]
 	prepMsg(cmd)
 }
 
 hubitat.device.HubAction ArmNight() {
-	ifDebug("armNight()")
+	if (dbgEnable)
+		log.debug "${device.label}: armNight()"
 	String cmd = elkCommands["ArmNight"]
 	prepMsg(cmd)
 }
 
 hubitat.device.HubAction ArmNightInstant() {
-	ifDebug("armNightInstant()")
+	if (dbgEnable)
+		log.debug "${device.label}: armNightInstant()"
 	String cmd = elkCommands["ArmNightInstant"]
 	prepMsg(cmd)
 }
 
 hubitat.device.HubAction ArmVacation() {
-	ifDebug("armVacation()")
+	if (dbgEnable)
+		log.debug "${device.label}: armVacation()"
 	String cmd = elkCommands["ArmVacation"]
 	prepMsg(cmd)
 }
 
 hubitat.device.HubAction RequestArmStatus() {
-	ifDebug("requestArmStatus()")
+	if (dbgEnable)
+		log.debug "${device.label}: requestArmStatus()"
 	String cmd = elkCommands["RequestArmStatus"]
 	sendMsg(cmd)
 }
 
 hubitat.device.HubAction RequestTemperatureData() {
-	ifDebug("requestTemperatureData()")
+	if (dbgEnable)
+		log.debug "${device.label}: requestTemperatureData()"
 	String cmd = elkCommands["RequestTemperatureData"]
 	sendMsg(cmd)
 }
 
 //This for loop now works properly
 def RequestTextDescriptions(String deviceType, int startDev) {
-	ifDebug("Request Text Descriptions Type: ${deviceType} Zone: ${startDev}")
+	if (dbgEnable)
+		log.debug "${device.label}: Request Text Descriptions Type: ${deviceType} Zone: ${startDev}"
 	String cmd = elkCommands["RequestTextDescriptions"] + deviceType + String.format("%03d", startDev) + "00"
-	String msgStr = addChksum(Integer.toHexString(cmd.length() + 2).toUpperCase().padLeft(2,'0') + cmd)
-	ifDebug("sending $msgStr")
+	String msgStr = addChksum(Integer.toHexString(cmd.length() + 2).toUpperCase().padLeft(2, '0') + cmd)
+	if (dbgEnable)
+		log.debug "${device.label}: sending $msgStr"
 	sendHubCommand(new hubitat.device.HubAction(msgStr, hubitat.device.Protocol.TELNET))
 }
 
 hubitat.device.HubAction ControlOutputOn(BigDecimal output = 0, String time = "0") {
-	ifDebug("controlOutputOn()")
+	if (dbgEnable)
+		log.debug "${device.label}: controlOutputOn()"
 	String cmd = elkCommands["ControlOutputOn"]
-	cmd = cmd + String.format("%03d", output.intValue()) + time.padLeft(5,'0')
+	cmd = cmd + String.format("%03d", output.intValue()) + time.padLeft(5, '0')
 	sendMsg(cmd)
 }
 
 hubitat.device.HubAction ControlOutputOff(BigDecimal output = 0) {
-	ifDebug("controlOutputOff()")
+	if (dbgEnable)
+		log.debug "${device.label}: controlOutputOff()"
 	String cmd = elkCommands["ControlOutputOff"]
 	cmd = cmd + String.format("%03d", output.intValue())
 	sendMsg(cmd)
 }
 
 hubitat.device.HubAction ControlOutputToggle(BigDecimal output = 0) {
-	ifDebug("controlOutputToggle()")
+	if (dbgEnable)
+		log.debug "${device.label}: controlOutputToggle()"
 	String cmd = elkCommands["ControlOutputToggle"]
 	cmd = cmd + String.format("%03d", output.intValue())
 	sendMsg(cmd)
 }
 
 hubitat.device.HubAction TaskActivation(BigDecimal task = 0) {
-	ifDebug("taskActivation()")
+	if (dbgEnable)
+		log.debug "${device.label}: taskActivation()"
 	String cmd = elkCommands["TaskActivation"]
 	cmd = cmd + String.format("%03d", task.intValue())
 	sendMsg(cmd)
 }
 
 hubitat.device.HubAction RequestThermostatData(String thermostat = "01") {
-	ifDebug("requestThermostatData()")
+	if (dbgEnable)
+		log.debug "${device.label}: requestThermostatData()"
 	String cmd = elkCommands["RequestThermostatData"]
 	cmd = cmd + thermostat
 	sendMsg(cmd)
@@ -216,10 +254,11 @@ hubitat.device.HubAction RequestThermostatData(String thermostat = "01") {
 hubitat.device.HubAction setThermostatMode(String thermostatmode, String thermostat = "01") {
 	String cmd = elkCommands["setThermostatMode"]
 	String value = elkThermostatModeSet[thermostatmode]
-	value = (value.padLeft(2,'0'))
+	value = (value.padLeft(2, '0'))
 	String element = "0"
 	cmd = cmd + thermostat + value + element
-	ifDebug("setThermostatMode()" + cmd + thermostatmode + thermostat)
+	if (dbgEnable)
+		log.debug "${device.label}: setThermostatMode()" + cmd + thermostatmode + thermostat
 	sendMsg(cmd)
 }
 
@@ -266,7 +305,7 @@ hubitat.device.HubAction off(String thermostat) {
 hubitat.device.HubAction setThermostatFanMode(String fanmode, String thermostat = "01") {
 	String cmd = elkCommands["setThermostatFanMode"]
 	String value = elkThermostatFanModeSet[fanmode]
-	value = (value.padLeft(2,'0'))
+	value = (value.padLeft(2, '0'))
 	String element = "2"
 	cmd = cmd + thermostat + value + element
 	sendMsg(cmd)
@@ -321,19 +360,22 @@ hubitat.device.HubAction setCoolingSetpoint(BigDecimal degrees, String thermosta
 //}
 
 hubitat.device.HubAction RequestZoneDefinitions() {
-	ifDebug("request Zone Definitions()")
+	if (dbgEnable)
+		log.debug "${device.label}: request Zone Definitions()"
 	String cmd = elkCommands["RequestZoneDefinitions"]
 	sendMsg(cmd)
 }
 
 hubitat.device.HubAction RequestZoneStatus() {
-	ifDebug("RequestZoneStatus()")
+	if (dbgEnable)
+		log.debug "${device.label}: RequestZoneStatus()"
 	String cmd = elkCommands["RequestZoneStatus"]
 	sendMsg(cmd)
 }
 
 hubitat.device.HubAction RequestOutputStatus() {
-	ifDebug("RequestOutputStatus()")
+	if (dbgEnable)
+		log.debug "${device.label}: RequestOutputStatus()"
 	String cmd = elkCommands["RequestOutputStatus"]
 	sendMsg(cmd)
 }
@@ -344,21 +386,22 @@ hubitat.device.HubAction RequestOutputStatus() {
 //Elk M1 Message Send Lines - Start of
 hubitat.device.HubAction prepMsg(String cmd) {
 	String area = "1"
-	sendMsg(cmd + area + code.padLeft(6,'0'))
+	sendMsg(cmd + area + code.padLeft(6, '0'))
 }
 
 hubitat.device.HubAction sendMsg(String cmd) {
 	String msg = cmd + "00"
-	String msgStr = addChksum(Integer.toHexString(msg.length() + 2).toUpperCase().padLeft(2,'0') + msg)
-	ifDebug("sendMsg $msgStr")
+	String msgStr = addChksum(Integer.toHexString(msg.length() + 2).toUpperCase().padLeft(2, '0') + msg)
+	if (dbgEnable)
+		log.debug "${device.label}: sendMsg $msgStr"
 	return new hubitat.device.HubAction(msgStr, hubitat.device.Protocol.TELNET)
 }
 
 String addChksum(String msg) {
 	char[] msgArray = msg.toCharArray()
 	int msgSum = 0
-	msgArray.each { (msgSum += (int)it) }
-	String chkSumStr = msg + Integer.toHexString(256 - (msgSum % 256)).toUpperCase().padLeft(2,'0')
+	msgArray.each { (msgSum += (int) it) }
+	String chkSumStr = msg + Integer.toHexString(256 - (msgSum % 256)).toUpperCase().padLeft(2, '0')
 }
 
 //Elk M1 Message Send Lines - End of
@@ -366,7 +409,8 @@ String addChksum(String msg) {
 
 //Elk M1 Event Receipt Lines
 private parse(String message) {
-	ifDebug("Parsing Incoming message: " + message)
+	if (dbgEnable)
+		log.debug "${device.label}: Parsing Incoming message: " + message
 
 	switch (message.substring(2, 4)) {
 		case "ZC":
@@ -388,7 +432,7 @@ private parse(String message) {
 			userCodeEntered(message);
 			break;
 		case "AR":
-			//alarmReporting(message);
+			alarmReporting(message);
 			break;
 		case "CS":
 			outputStatus(message);
@@ -412,7 +456,7 @@ private parse(String message) {
 			thermostatData(message);
 			break;
 		case "AM":
-			//ifDebug("The event is unknown: ");
+			//if (dbgEnable) log.debug "${device.label}: The event is unknown: ";
 			break;
 		case "XK":
 			// Ethernet Test
@@ -424,7 +468,7 @@ private parse(String message) {
 			zoneStatusReport(message);
 			break;
 		default:
-			ifDebug("The command is unknown");
+			if (dbgEnable) log.debug "${device.label}: The command is unknown";
 			break;
 	}
 }
@@ -434,48 +478,48 @@ def zoneChange(String message) {
 	String zoneStatus = message.substring(7, 8)
 	switch (zoneStatus) {
 		case "1":
-			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NormalOpen}");
+			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NormalOpen}";
 			zoneNormal(message);
 			break;
 		case "2":
-			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NormalEOL}");
+			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NormalEOL}";
 			zoneNormal(message);
 			break;
 		case "3":
-			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NormalShort}");
+			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NormalShort}";
 			zoneNormal(message);
 			break;
 		case "9":
-			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${ViolatedOpen}");
+			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${ViolatedOpen}";
 			zoneViolated(message);
 			break;
 		case "A":
-			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${ViolatedEOL}");
+			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${ViolatedEOL}";
 			zoneViolated(message);
 			break;
 		case "B":
-			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${ViolatedShort}");
+			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${ViolatedShort}";
 			zoneViolated(message);
 			break;
 //		case "0":
-//			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NormalUnconfigured}");
+//			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NormalUnconfigured}";
 //			zoneNormal(message);
 //			break;
 //		case "5":
-//			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${TroubleOpen}");
+//			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${TroubleOpen}";
 //			break;
 //		case "6":
 //			zoneStatus = TroubleEOL;
-//			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${TroubleEOL}");
+//			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${TroubleEOL}";
 //			break;
 //		case "7":
-//			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${TroubleShort}");
+//			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${TroubleShort}";
 //			break;
 //		case "8":
-//			ifDebug("ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NotUsed}");
+//			if (dbgEnable) log.debug "${device.label}: ZoneChange: ${zoneNumber} - ${zoneStatus} - ${NotUsed}";
 //			break;
 		default:
-			ifDebug("Unknown zone status message $zoneStatus");
+			if (dbgEnable) log.debug "${device.label}: Unknown zone status message $zoneStatus";
 			break;
 	}
 }
@@ -484,28 +528,24 @@ def entryExitChange(String message) {
 	String exitArea = message.substring(4, 5)
 	String exitTime = message.substring(6, 12)
 	String armStatus = elkArmStatuses[message.substring(12, 13)]
-	ifDebug("Area: $exitArea, Time: $exitTime, ArmStatus: $armStatus")
-	if (exitArea == "1" && exitTime == "000000")
-	{
+	if (dbgEnable)
+		log.debug "${device.label}: Area: $exitArea, Time: $exitTime, ArmStatus: $armStatus"
+	if (exitArea == "1" && exitTime == "000000") {
 		String newArmMode
 		String newSetArm
 		if (armStatus == Disarmed) {
 			newArmMode = "Home"
 			newSetArm = "disarm"
-		}
-		else if (armStatus == ArmedStay || armStatus == ArmedStayInstant) {
+		} else if (armStatus == ArmedStay || armStatus == ArmedStayInstant) {
 			newArmMode = "Stay"
 			newSetArm = "armHome"
-		}
-		else if (armStatus == ArmedtoNight || armStatus == ArmedtoNightInstant) {
+		} else if (armStatus == ArmedtoNight || armStatus == ArmedtoNightInstant) {
 			newArmMode = "Night"
 			newSetArm = "armNight"
-		}
-		else if (armStatus == ArmedtoVacation) {
+		} else if (armStatus == ArmedtoVacation) {
 			newArmMode = "Vacation"
 			newSetArm = "armAway"
-		}
-		else {
+		} else {
 			newArmMode = "Away"
 			newSetArm = "armAway"
 		}
@@ -517,18 +557,20 @@ def armStatusReport(String message) {
 	String armStatus = elkArmStatuses[message.substring(4, 5)]
 	String armUpState = elkArmUpStates[message.substring(12, 13)]
 	String alarmState = elkAlarmStates[message.substring(20, 21)]
-	ifDebug("ArmStatus: ${armStatus}")
-	ifDebug("ArmUpState: ${armUpState}")
-	ifDebug("AlarmState: ${alarmState}")
-	sendEvent(name:"ArmState", value: armUpState, displayed:false, isStateChange: true)
+	if (dbgEnable) {
+		log.debug "${device.label}: ArmStatus: ${armStatus}"
+		log.debug "${device.label}: ArmUpState: ${armUpState}"
+		log.debug "${device.label}: AlarmState: ${alarmState}"
+	}
+	sendEvent(name: "ArmState", value: armUpState, displayed: false, isStateChange: true)
 	if (state.alarmState != alarmState) {
 		state.alarmState = alarmState
-		sendEvent(name:"AlarmState", value: alarmState, displayed:false, isStateChange: true)
-		log.info "AlarmState changed to ${alarmState}"
+		sendEvent(name: "AlarmState", value: alarmState, displayed: false, isStateChange: true)
+		if (txtEnable)
+			log.info "${device.label}: AlarmState changed to ${alarmState}"
 		if (alarmState == PoliceAlarm || alarmState == BurgularAlarm) {
 			device.sendEvent(name: "contact", value: "open", isStateChange: true)
-		}
-		else {
+		} else {
 			device.sendEvent(name: "contact", value: "closed", isStateChange: true)
 		}
 	}
@@ -536,12 +578,13 @@ def armStatusReport(String message) {
 
 def userCodeEntered(String message) {
 	String userCode = message.substring(16, 19)
-	ifDebug("LastUser: ${userCode} - ${message}")
-	sendEvent(name:"LastUser", value: userCode, displayed:false, isStateChange: true)
+	if (txtEnable)
+		log.info "${device.label} LastUser was ${userCode}"
+	sendEvent(name: "LastUser", value: userCode, displayed: false, isStateChange: true)
 }
 
 def alarmReporting(String message) {
-	ifDebug("AlarmReporting: ")
+	log.warn "${device.label}: AlarmReporting"
 	String accountNumber = message.substring(4, 10)
 	String alarmCode = message.substring(10, 14)
 	String area = message.substring(14, 16)
@@ -554,11 +597,17 @@ def outputChange(String message) {
 	String outputState = (message.substring(7, 8) == "1") ? "on" : "off"
 	def zoneDevice = getChildDevice("${device.deviceNetworkId}_O_${outputNumber}")
 	if (zoneDevice != null) {
-		ifDebug("Output Change Update: ${outputNumber} - ${outputState}")
-//		if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}) {
-		zoneDevice.sendEvent(name: "switch", value: outputState, isStateChange: true)
-		if (zoneDevice.hasCommand("writeLog")) zoneDevice.writeLog(outputState)
-//		}
+		if (state.outputReport != null) {
+			state.outputReport = sendReport(state.outputReport, zoneDevice, outputNumber, outputState == "on")
+		}
+		if (dbgEnable)
+			log.debug "${device.label}: Output Change Update: ${outputNumber} - ${outputState}"
+		if (zoneDevice.hasCapability("Switch")) {
+			zoneDevice.sendEvent(name: "switch", value: outputState, isStateChange: true)
+		}
+		if (zoneDevice.hasCommand("writeLog")) {
+			zoneDevice.writeLog(outputState)
+		}
 	}
 }
 
@@ -568,7 +617,8 @@ def outputStatus(String message) {
 	int i
 	for (i = 1; i <= 208; i++) {
 		outputState = outputString.substring(i - 1, i)
-		//ifDebug("OutputStatus: Output " + i + " - " + elkOutputStates[outputState])
+		//if (dbgEnable)
+		//	log.debug "${device.label}: OutputStatus: Output " + i + " - " + elkOutputStates[outputState]
 		outputChange("    " + String.format("%03d", i) + outputState)
 		if (i <= 32) {
 			taskStatus([Message: "    " + String.format("%03d", i), State: "off"])
@@ -577,7 +627,8 @@ def outputStatus(String message) {
 }
 
 def lightingDeviceStatus(String message) {
-	ifDebug("LightStatus: ")
+	if (dbgEnable)
+		log.debug "${device.label}: LightStatus: "
 	String deviceNumber = message.substring(4, 7)
 	String deviceState = message.substring(7, 8)
 }
@@ -585,28 +636,24 @@ def lightingDeviceStatus(String message) {
 def logData(String message) {
 	String eventCode = message.substring(4, 8)
 	String eventValue = elkResponses[eventCode]
-	if(eventValue != null) {
-		ifDebug("LogData: ${eventCode} - ${eventValue}")
+	if (eventValue != null && dbgEnable) {
+		log.debug "${device.label}: LogData: ${eventCode} - ${eventValue}"
 	}
-	if(eventCode == '1173' || eventCode == '1183' || eventCode == '1223' || eventCode == '1231') {
+	if (eventCode == '1173' || eventCode == '1183' || eventCode == '1223' || eventCode == '1231') {
 //		sendEvent(name:"Status", value: eventValue, displayed:false, isStateChange: true)
 // 		systemArmed()
-	}
-	else if(eventCode == '1191' || eventCode == '1199') {
+	} else if (eventCode == '1191' || eventCode == '1199') {
 //		sendEvent(name:"Status", value: eventValue, displayed:false, isStateChange: true)
 //		systemArmed()
-	}
-	else if(eventCode == '1174') {
+	} else if (eventCode == '1174') {
 //		sendEvent(name:"Status", value: eventValue, displayed:false, isStateChange: true)
 //		disarming()
 		setMode("Home", "disarm", "Disarmed")
-	}
-	else if('1207' || eventCode == '1215') {
+	} else if ('1207' || eventCode == '1215') {
 //		sendEvent(name:"Status", value: eventValue, displayed:false, isStateChange: true)
 //		systemArmed()
-	}
-	else if(eventCode != '1000' && eventValue != null) {
-		sendEvent(name:"Status", value: eventValue, displayed:false, isStateChange: true)
+	} else if (eventCode != '1000' && eventValue != null) {
+		sendEvent(name: "Status", value: eventValue, displayed: false, isStateChange: true)
 	}
 }
 
@@ -616,13 +663,14 @@ def temperatureData(String message) {
 	def zoneDevice
 	int i
 	int zoneInt
-	for (i = 4; i <= 50; i +=3 ) {
+	for (i = 4; i <= 50; i += 3) {
 		number = message.substring(i, i + 3).toInteger()
 		if (number > 0) {
 			zoneInt = (i - 1) / 3
 			zoneNumber = String.format("%03d", zoneInt)
 			number = number - 40
-			ifDebug("Keypad ${zoneNumber} temp: ${number}")
+			if (dbgEnable)
+				log.debug "${device.label}: Keypad ${zoneNumber} temp: ${number}"
 			zoneDevice = getChildDevice("${device.deviceNetworkId}_P_${zoneNumber}")
 			if (zoneDevice?.capabilities?.find { it.name == "TemperatureMeasurement" } != null) {
 				zoneDevice.sendEvent(name: "temperature", value: number)
@@ -630,13 +678,14 @@ def temperatureData(String message) {
 		}
 	}
 
-	for (i = 52; i <= 98; i +=3 ) {
+	for (i = 52; i <= 98; i += 3) {
 		number = message.substring(i, i + 3).toInteger()
 		if (number > 0) {
 			zoneInt = (i - 49) / 3
 			zoneNumber = String.format("%03d", zoneInt)
 			number = number - 60
-			ifDebug("Zone ${zoneNumber} temp: ${number}")
+			if (dbgEnable)
+				log.debug "${device.label}: Zone ${zoneNumber} temp: ${number}"
 			zoneDevice = getChildDevice("${device.deviceNetworkId}_Z_${zoneNumber}")
 			if (zoneDevice?.capabilities?.find { it.name == "TemperatureMeasurement" } != null) {
 				zoneDevice.sendEvent(name: "temperature", value: number)
@@ -647,11 +696,12 @@ def temperatureData(String message) {
 
 def stringDescription(String message) {
 	String zoneNumber = message.substring(6, 9)
-	if(zoneNumber != "000") {
+	if (zoneNumber != "000") {
 		String zoneName
 		String zoneType = message.substring(4, 6)
 		byte firstText = message.substring(9, 10)
-		String zoneText = (String)((char)(firstText & 0b01111111)) + message.substring(10, 25).trim() // Mask high order "Show On Keypad" bit in first letter
+		String zoneText = (String) ((char) (firstText & 0b01111111)) + message.substring(10, 25).trim()
+		// Mask high order "Show On Keypad" bit in first letter
 		if (zoneText != "") {
 			createZone([zoneNumber: zoneNumber, zoneName: zoneName, zoneType: zoneType, zoneText: zoneText])
 		}
@@ -663,7 +713,8 @@ def stringDescription(String message) {
 }
 
 def statusTemperature(String message) {
-	ifDebug("ReplyRequestedTemp: ")
+	if (dbgEnable)
+		log.debug "${device.label}: ReplyRequestedTemp: "
 	String group = message.substring(4, 5)
 	group = elkTempTypes[group]
 	String device = message.substring(6, 8)
@@ -691,14 +742,16 @@ def thermostatData(String message) {
 	def hSet = message.substring(11, 13)
 	def cSet = message.substring(13, 15)
 	def cHumid = message.substring(15, 17)
-	ifDebug("Thermostat Data Check: " + tNumber + ", " + mode + " Mode, Hold temperature = " + hold + ", " + fan + ", Current Temperature = " + cTemp + ", Heat Setpoint = " + hSet + ", Cool Setpoint = " + cSet)
-	tNumber = (tNumber.padLeft(3,'0'))
+	if (dbgEnable)
+		log.debug "${device.label}: Thermostat Data Check: " + tNumber + ", " + mode + " Mode, Hold temperature = " + hold + ", " + fan + ", Current Temperature = " + cTemp + ", Heat Setpoint = " + hSet + ", Cool Setpoint = " + cSet
+	tNumber = (tNumber.padLeft(3, '0'))
 	deviceNetworkId = ElkM1DNI + "_T_" + tNumber
-//	ifDebug("Thermostat Data Check: " + deviceNetworkId)
+//	if (dbgEnable)
+//		log.debug "${device.label}: Thermostat Data Check: " + deviceNetworkId
 
 	if (getChildDevice(deviceNetworkId) != null) {
 		zoneDevice = getChildDevice(deviceNetworkId)
-		if (zoneDevice.capabilities.find { item -> item.name.startsWith('Thermostat')}) {
+		if (zoneDevice.capabilities.find { item -> item.name.startsWith('Thermostat') }) {
 			zoneDevice.sendEvent(name: "temperature", value: (cTemp))
 			zoneDevice.sendEvent(name: "thermostatMode", value: (mode))
 			zoneDevice.sendEvent(name: "thermostatFanMode", value: (fan))
@@ -714,8 +767,8 @@ def zoneDefinitionReport(String message) {
 	int i
 	for (i = 1; i <= 208; i++) {
 		zoneString = elkZoneDefinitions[zoneDefinitions.substring(i - 1, i)]
-		if (zoneString != null && zoneString != Disabled) {
-			ifDebug("ZoneDefinitions: Zone " + i + " - " + zoneString)
+		if (zoneString != null && zoneString != Disabled && dbgEnable) {
+			log.debug "${device.label}: ZoneDefinitions: Zone " + i + " - " + zoneString
 		}
 	}
 }
@@ -727,124 +780,127 @@ def zoneStatusReport(String message) {
 	for (i = 1; i <= 208; i++) {
 		zoneStatus = zoneString.substring(i - 1, i)
 		if (zoneStatus != null && zoneStatus != "0") {
-			//ifDebug("ZoneStatus: Zone " + i + " - " + elkZoneStatuses[zoneStatus])
-			zoneChange("    " + String.format("%03d", i) + zoneStatus)
+			//if (dbgEnable)
+			//	log.debug "${device.label}: ZoneStatus: Zone " + i + " - " + elkZoneStatuses[zoneStatus]
+			zoneChange("    " + String.format("%03d", i) + zoneStatus + "    ")
 		}
 	}
 }
 
 // Zone Status
 def zoneViolated(String message) {
-	int substringCount = (message.length()-8)
-	def zoneDevice = getChildDevice("${device.deviceNetworkId}_Z_${message.substring(substringCount).take(3)}")
+	String zoneNumber = message.substring(message.length() - 8).take(3)
+	def zoneDevice = getChildDevice("${device.deviceNetworkId}_Z_${zoneNumber}")
 	if (zoneDevice == null) { // For backwards capability
-		zoneDevice = getChildDevice("${device.deviceNetworkId}_C_${message.substring(substringCount).take(3)}")
+		zoneDevice = getChildDevice("${device.deviceNetworkId}_C_${zoneNumber}")
 	}
 	if (zoneDevice == null) { // For backwards capability
-		zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${message.substring(substringCount).take(3)}")
+		zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${zoneNumber}")
 	}
 
 	if (zoneDevice != null) {
+		if (state.zoneReport != null) {
+			state.zoneReport = sendReport(state.zoneReport, zoneDevice, zoneNumber, true)
+		}
 		def cmdList = zoneDevice.supportedCommands
 		if (cmdList.find { it.name == "open" } != null) {
 			zoneDevice.open()
-		}
-		else if (cmdList.find { it.name == "active" } != null) {
+		} else if (cmdList.find { it.name == "active" } != null) {
 			zoneDevice.active()
-		}
-		else if (cmdList.find { it.name == "on" } != null) {
+		} else if (cmdList.find { it.name == "on" } != null) {
 			zoneDevice.on()
-		}
-		else if (cmdList.find { it.name == "arrived" } != null) {
+		} else if (cmdList.find { it.name == "arrived" } != null) {
 			zoneDevice.arrived()
-		}
-		else if (cmdList.find { it.name == "detected" } != null) {
+		} else if (cmdList.find { it.name == "detected" } != null) {
 			zoneDevice.detected()
-		}
-		else {
+		} else {
 			def capList = zoneDevice.capabilities
 			if (capList.find { it.name == "ContactSensor" } != null) {
 				zoneDevice.sendEvent(name: "contact", value: "open")
-//				ifDebug("Contact Open")
-			}
-			else if (capList.find { it.name == "MotionSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Contact Open"
+			} else if (capList.find { it.name == "MotionSensor" } != null) {
 				zoneDevice.sendEvent(name: "motion", value: "active")
-//				ifDebug("Motion Active")
-			}
-			else if (capList.find { it.name == "SmokeDetector" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Motion Active"
+			} else if (capList.find { it.name == "SmokeDetector" } != null) {
 				zoneDevice.sendEvent(name: "smoke", value: "detected")
-//				ifDebug("Smoke Detected")
-			}
-			else if (capList.find { it.name == "CarbonMonoxideDetector" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Smoke Detected"
+			} else if (capList.find { it.name == "CarbonMonoxideDetector" } != null) {
 				zoneDevice.sendEvent(name: "carbonMonoxide", value: "detected")
-//				ifDebug("Carbon Monoxide Detected")
-			}
-			else if (capList.find { it.name == "WaterSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Carbon Monoxide Detected"
+			} else if (capList.find { it.name == "WaterSensor" } != null) {
 				zoneDevice.sendEvent(name: "water", value: "wet")
-//				ifDebug("Water Wet")
-			}
-			else if (capList.find { it.name == "TamperAlert" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Water Wet"
+			} else if (capList.find { it.name == "TamperAlert" } != null) {
 				zoneDevice.sendEvent(name: "tamper", value: "detected")
-//				ifDebug("Tamper Alert Detected")
-			}
-			else if (capList.find { it.name == "AccelerationSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Tamper Alert Detected"
+			} else if (capList.find { it.name == "AccelerationSensor" } != null) {
 				zoneDevice.sendEvent(name: "acceleration", value: "active")
-//				ifDebug("Acceleration Sensor Active")
-			}
-			else if (capList.find { it.name == "Beacon" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Acceleration Sensor Active"
+			} else if (capList.find { it.name == "Beacon" } != null) {
 				zoneDevice.sendEvent(name: "presence", value: "present")
-//				ifDebug("Beacon Present")
-			}
-			else if (capList.find { it.name == "GarageDoorControl" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Beacon Present"
+			} else if (capList.find { it.name == "GarageDoorControl" } != null) {
 				zoneDevice.sendEvent(name: "door", value: "open")
-//				ifDebug("GarageDoorControl Open")
-			}
-			else if (capList.find { it.name == "PresenceSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: GarageDoorControl Open"
+			} else if (capList.find { it.name == "PresenceSensor" } != null) {
 				zoneDevice.sendEvent(name: "presence", value: "present")
-//				ifDebug("Presence Present")
-			}
-			else if (capList.find { it.name == "RelaySwitch" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Presence Present"
+			} else if (capList.find { it.name == "RelaySwitch" } != null) {
 				zoneDevice.sendEvent(name: "switch", value: "on")
-//				ifDebug("Relay Switch On")
-			}
-			else if (capList.find { it.name == "ShockSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Relay Switch On"
+			} else if (capList.find { it.name == "ShockSensor" } != null) {
 				zoneDevice.sendEvent(name: "shock", value: "detected")
-//				ifDebug("Shock Sensor Detected")
-			}
-			else if (capList.find { it.name == "SleepSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Shock Sensor Detected"
+			} else if (capList.find { it.name == "SleepSensor" } != null) {
 				zoneDevice.sendEvent(name: "sleeping", value: "sleeping")
-//				ifDebug("Sleep Sensor Sleeping")
-			}
-			else if (capList.find { it.name == "SoundSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Sleep Sensor Sleeping"
+			} else if (capList.find { it.name == "SoundSensor" } != null) {
 				zoneDevice.sendEvent(name: "sound", value: "detected")
-//				ifDebug("Sound Sensor Detected")
-			}
-			else if (capList.find { it.name == "Switch" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Sound Sensor Detected"
+			} else if (capList.find { it.name == "Switch" } != null) {
 				zoneDevice.sendEvent(name: "switch", value: "on")
-//				ifDebug("Switch On")
-			}
-			else if (capList.find { it.name == "TouchSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Switch On"
+			} else if (capList.find { it.name == "TouchSensor" } != null) {
 				zoneDevice.sendEvent(name: "touch", value: "touched")
-//				ifDebug("Touch Touched")
-			}
-			else if (capList.find { it.name == "Valve" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Touch Touched"
+			} else if (capList.find { it.name == "Valve" } != null) {
 				zoneDevice.sendEvent(name: "valve", value: "open")
-//				ifDebug("Valve Open")
+//				if (dbgEnable)
+//					log.debug "${device.label}: Valve Open"
 			}
 		}
 	}
 }
 
 def zoneNormal(String message) {
-	int substringCount = (message.length()-8)
-	def zoneDevice = getChildDevice("${device.deviceNetworkId}_Z_${message.substring(substringCount).take(3)}")
+	String zoneNumber = message.substring(message.length() - 8).take(3)
+	def zoneDevice = getChildDevice("${device.deviceNetworkId}_Z_${zoneNumber}")
 	if (zoneDevice == null) { // For backwards capability
-		zoneDevice = getChildDevice("${device.deviceNetworkId}_C_${message.substring(substringCount).take(3)}")
+		zoneDevice = getChildDevice("${device.deviceNetworkId}_C_${zoneNumber}")
 	}
 	if (zoneDevice == null) { // For backwards capability
-		zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${message.substring(substringCount).take(3)}")
+		zoneDevice = getChildDevice("${device.deviceNetworkId}_M_${zoneNumber}")
 	}
 	if (zoneDevice != null) {
+		if (state.zoneReport != null) {
+			state.zoneReport = sendReport(state.zoneReport, zoneDevice, zoneNumber, false)
+		}
 		def cmdList = zoneDevice.supportedCommands
 		if (cmdList.find { it.name == "close" } != null) {
 			zoneDevice.close()
@@ -854,78 +910,76 @@ def zoneNormal(String message) {
 		}
 		if (cmdList.find { it.name == "off" } != null) {
 			zoneDevice.off()
-		}
-		else if (cmdList.find { it.name == "departed" } != null) {
+		} else if (cmdList.find { it.name == "departed" } != null) {
 			zoneDevice.departed()
-		}
-		else if (cmdList.find { it.name == "clear" } != null) {
+		} else if (cmdList.find { it.name == "clear" } != null) {
 			zoneDevice.clear()
-		}
-		else {
+		} else {
 			def capList = zoneDevice?.capabilities
 			if (capList.find { it.name == "ContactSensor" } != null) {
 				zoneDevice.sendEvent(name: "contact", value: "closed")
-//				ifDebug("Contact Closed")
-			}
-			else if (capList.find { it.name == "MotionSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Contact Closed"
+			} else if (capList.find { it.name == "MotionSensor" } != null) {
 				zoneDevice.sendEvent(name: "motion", value: "inactive")
-//				ifDebug("Motion Inactive")
-			}
-			else if (capList.find { it.name == "SmokeDetector" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Motion Inactive"
+			} else if (capList.find { it.name == "SmokeDetector" } != null) {
 				zoneDevice.sendEvent(name: "smoke", value: "clear")
-//				ifDebug("Smoke Clear")
-			}
-			else if (capList.find { it.name == "CarbonMonoxideDetector" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Smoke Clear"
+			} else if (capList.find { it.name == "CarbonMonoxideDetector" } != null) {
 				zoneDevice.sendEvent(name: "carbonMonoxide", value: "clear")
-//				ifDebug("Carbon Monoxide Clear")
-			}
-			else if (capList.find { it.name == "WaterSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Carbon Monoxide Clear"
+			} else if (capList.find { it.name == "WaterSensor" } != null) {
 				zoneDevice.sendEvent(name: "water", value: "dry")
-//				ifDebug("Water Dry")
-			}
-			else if (capList.find { it.name == "TamperAlert" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Water Dry"
+			} else if (capList.find { it.name == "TamperAlert" } != null) {
 				zoneDevice.sendEvent(name: "tamper", value: "clear")
-//				ifDebug("Tamper Clear")
-			}
-			else if (capList.find { it.name == "AccelerationSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Tamper Clear"
+			} else if (capList.find { it.name == "AccelerationSensor" } != null) {
 				zoneDevice.sendEvent(name: "acceleration", value: "inactive")
-//				ifDebug("Acceleration Sensor Inactive")
-			}
-			else if (capList.find { it.name == "Beacon" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Acceleration Sensor Inactive"
+			} else if (capList.find { it.name == "Beacon" } != null) {
 				zoneDevice.sendEvent(name: "presence", value: "not present")
-//				ifDebug("Beacon Not Present")
-			}
-			else if (capList.find { it.name == "GarageDoorControl" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Beacon Not Present"
+			} else if (capList.find { it.name == "GarageDoorControl" } != null) {
 				zoneDevice.sendEvent(name: "door", value: "closed")
-//				ifDebug("GarageDoorControl Closed")
-			}
-			else if (capList.find { it.name == "PresenceSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: GarageDoorControl Closed"
+			} else if (capList.find { it.name == "PresenceSensor" } != null) {
 				zoneDevice.sendEvent(name: "presence", value: "not present")
-//				ifDebug("Presence Not Present")
-			}
-			else if (capList.find { it.name == "RelaySwitch" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Presence Not Present"
+			} else if (capList.find { it.name == "RelaySwitch" } != null) {
 				zoneDevice.sendEvent(name: "switch", value: "off")
-//				ifDebug("Relay Switch Off")
-			}
-			else if (capList.find { it.name == "ShockSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Relay Switch Off"
+			} else if (capList.find { it.name == "ShockSensor" } != null) {
 				zoneDevice.sendEvent(name: "shock", value: "clear")
-//				ifDebug("Shock Sensor Clear")
-			}
-			else if (capList.find { it.name == "SleepSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Shock Sensor Clear"
+			} else if (capList.find { it.name == "SleepSensor" } != null) {
 				zoneDevice.sendEvent(name: "sleeping", value: "not sleeping")
-//				ifDebug("Sleep Sensor Not Sleeping")
-			}
-			else if (capList.find { it.name == "SoundSensor" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Sleep Sensor Not Sleeping"
+			} else if (capList.find { it.name == "SoundSensor" } != null) {
 				zoneDevice.sendEvent(name: "sound", value: "not detected")
-//				ifDebug("Sound Sensor Not Detected")
-			}
-			else if (capList.find { it.name == "Switch" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Sound Sensor Not Detected"
+			} else if (capList.find { it.name == "Switch" } != null) {
 				zoneDevice.sendEvent(name: "switch", value: "off")
-//				ifDebug("Switch Off")
-			}
-			else if (capList.find { it.name == "Valve" } != null) {
+//				if (dbgEnable)
+//					log.debug "${device.label}: Switch Off"
+			} else if (capList.find { it.name == "Valve" } != null) {
 				zoneDevice.sendEvent(name: "valve", value: "closed")
-//				ifDebug("Valve Closed")
+//				if (dbgEnable)
+//					log.debug "${device.label}: Valve Closed"
 			}
 		}
 	}
@@ -935,28 +989,32 @@ def taskStatus(data) {
 	String taskNumber = data.Message.substring(4, 7)
 	def zoneDevice = getChildDevice(device.deviceNetworkId + "_K_" + taskNumber)
 	if (zoneDevice != null) {
-		ifDebug("Task Change Update: ${taskNumber} - ${data.State}")
-//		if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}) {
-		if (data.State == "off") {
-			zoneDevice.sendEvent(name: "switch", value: data.State)
-		}
-		else {
-			zoneDevice.sendEvent(name: "switch", value: data.State, isStateChange: true)
+		if (dbgEnable)
+			log.debug "${device.label}: Task Change Update: ${taskNumber} - ${data.State}"
+		if (zoneDevice.hasCapability("Switch")) {
+			if (data.State == "off") {
+				zoneDevice.sendEvent(name: "switch", value: data.State)
+			} else {
+				zoneDevice.sendEvent(name: "switch", value: data.State, isStateChange: true)
+				if (state.taskReport != null) {
+					state.taskReport = sendReport(state.taskReport, zoneDevice, taskNumber, true)
+				}
+			}
 		}
 		if (data.State == "on" && zoneDevice.hasCommand("writeLog")) {
 			zoneDevice.writeLog()
 		}
-//		}
 	}
 }
 
 //NEW CODE
 //Manage Zones
-def createZone(zoneInfo){
+def createZone(zoneInfo) {
 	String zoneNumber = zoneInfo.zoneNumber
 	String zoneName = zoneInfo.zoneName
 	String deviceNetworkId
-	//ifDebug("zoneNumber: ${zoneNumber}, zoneName: ${zoneName}, zoneType: ${zoneInfo.zoneType}, zoneText: ${zoneInfo.zoneText}")
+	//if (dbgEnable)
+	//	log.debug "${device.label}: zoneNumber: ${zoneNumber}, zoneName: ${zoneName}, zoneType: ${zoneInfo.zoneType}, zoneText: ${zoneInfo.zoneText}"
 	if (zoneInfo.zoneType == "00") {
 		if (zoneName == null) {
 			zoneName = "Zone " + zoneNumber + " - " + zoneInfo.zoneText
@@ -965,130 +1023,129 @@ def createZone(zoneInfo){
 				getChildDevice("${device.deviceNetworkId}_Z_${zoneNumber}") == null) {
 			deviceNetworkId = "${device.deviceNetworkId}_Z_${zoneNumber}"
 			if (zoneName ==~ /(?i).*motion.*/) {
-				log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Motion"
+				if (txtEnable)
+					log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Motion"
 				addChildDevice("hubitat", "Virtual Motion Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
 				def newDevice = getChildDevice(deviceNetworkId)
-				newDevice.updateSetting("autoInactive",[type:"enum", value:0])
-				newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
-			}
-			else if (zoneName ==~ /(?i).*temperature.*/) {
-				log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Temperature"
+				newDevice.updateSetting("autoInactive", [type: "enum", value: 0])
+				newDevice.updateSetting("txtEnable", [value: "false", type: "bool"])
+			} else if (zoneName ==~ /(?i).*temperature.*/) {
+				if (txtEnable)
+					log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Temperature"
 				addChildDevice("hubitat", "Virtual Temperature Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
 				def newDevice = getChildDevice(deviceNetworkId)
-				newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
-			}
-			else {
-				log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Contact"
+				newDevice.updateSetting("txtEnable", [value: "false", type: "bool"])
+			} else {
+				if (txtEnable)
+					log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Contact"
 				addChildDevice("hubitat", "Virtual Contact Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
 				def newDevice = getChildDevice(deviceNetworkId)
-				newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
+				newDevice.updateSetting("txtEnable", [value: "false", type: "bool"])
 			}
+		} else if (dbgEnable) {
+			log.debug "${device.label}: deviceNetworkId = ${device.deviceNetworkId}_Z_${zoneNumber} already exists"
 		}
-		else {
-			ifDebug("deviceNetworkId = ${device.deviceNetworkId}_Z_${zoneNumber} already exists")
-		}
-	}
-	else if (zoneInfo.zoneType == "03") {
+	} else if (zoneInfo.zoneType == "03") {
 		if (zoneName == null) {
 			zoneName = "Keypad ${zoneNumber.substring(1, 3)} - ${zoneInfo.zoneText}"
 		}
 		deviceNetworkId = "${device.deviceNetworkId}_P_${zoneNumber}"
 		if (getChildDevice(deviceNetworkId) == null) {
-			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Keypad"
+			if (txtEnable)
+				log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Keypad"
 			addChildDevice("hubitat", "Virtual Temperature Sensor", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
 			def newDevice = getChildDevice(deviceNetworkId)
-			newDevice.updateSetting("txtEnable",[value:"false",type:"bool"])
+			newDevice.updateSetting("txtEnable", [value: "false", type: "bool"])
+		} else if (dbgEnable) {
+			log.debug "${device.label}: deviceNetworkId = ${deviceNetworkId} already exists"
 		}
-		else {
-			ifDebug("deviceNetworkId = ${deviceNetworkId} already exists")
-		}
-	}
-	else if (zoneInfo.zoneType == "04") {
+	} else if (zoneInfo.zoneType == "04") {
 		if (zoneName == null) {
 			zoneName = "Output ${zoneNumber} - ${zoneInfo.zoneText}"
 		}
 		deviceNetworkId = "${device.deviceNetworkId}_O_${zoneNumber}"
 		if (getChildDevice(deviceNetworkId) == null) {
-			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Output"
+			if (txtEnable)
+				log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Output"
 			addChildDevice("belk", "Elk M1 Driver Outputs", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+		} else if (dbgEnable) {
+			log.debug "${device.label}: deviceNetworkId = ${deviceNetworkId} already exists"
 		}
-		else {
-			ifDebug("deviceNetworkId = ${deviceNetworkId} already exists")
-		}
-	}
-	else if (zoneInfo.zoneType == "05") {
+	} else if (zoneInfo.zoneType == "05") {
 		if (zoneName == null) {
 			zoneName = "Task ${zoneNumber.substring(1, 3)} - ${zoneInfo.zoneText}"
 		}
 		deviceNetworkId = "${device.deviceNetworkId}_K_${zoneNumber}"
 		if (getChildDevice(deviceNetworkId) == null) {
-			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Task"
+			if (txtEnable)
+				log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Task"
 			addChildDevice("belk", "Elk M1 Driver Tasks", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+		} else if (dbgEnable) {
+			log.debug "${device.label}: deviceNetworkId = ${deviceNetworkId} already exists"
 		}
-		else {
-			ifDebug("deviceNetworkId = ${deviceNetworkId} already exists")
-		}
-	}
-	else if (zoneInfo.zoneType == "11") {
+	} else if (zoneInfo.zoneType == "11") {
 		if (zoneName == null) {
 			zoneName = "Thermostat ${zoneNumber} - ${zoneInfo.zoneText}"
 		}
 		deviceNetworkId = "${device.deviceNetworkId}_T_${zoneNumber}"
 		if (getChildDevice(deviceNetworkId) == null) {
-			log.info "Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Thermostat"
+			if (txtEnable)
+				log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Thermostat"
 			addChildDevice("belk", "Elk M1 Driver Thermostat", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
-		}
-		else {
-			ifDebug("deviceNetworkId = ${deviceNetworkId} already exists")
+		} else if (dbgEnable) {
+			log.debug "${device.label}: deviceNetworkId = ${deviceNetworkId} already exists"
 		}
 	}
 }
 
 def removeZone(zoneInfo) {
-	log.info "Removing ${zoneInfo.zoneName} with deviceNetworkId = ${zoneInfo.deviceNetworkId}"
+	if (txtEnable)
+		log.info "${device.label}: Removing ${zoneInfo.zoneName} with deviceNetworkId = ${zoneInfo.deviceNetworkId}"
 	deleteChildDevice(zoneInfo.deviceNetworkId)
 }
 
 def setMode(String armMode, String setArm, String armStatus) {
 	if (state.armStatus != armStatus) {
 		state.armStatus = armStatus
-		sendEvent(name:"ArmStatus", value: armStatus, displayed:false, isStateChange: true)
-		log.info "ArmStatus changed to ${armStatus}"
+		sendEvent(name: "ArmStatus", value: armStatus, displayed: false, isStateChange: true)
+		if (txtEnable)
+			log.info "${device.label}: ArmStatus changed to ${armStatus}"
 	}
 	if (state.armState != armMode) {
 		state.armState = armMode
 		def allmodes = location.getModes()
-		int idx = allmodes.findIndexOf{it.name == armMode}
+		int idx = allmodes.findIndexOf { it.name == armMode }
 		if (idx == -1 && armMode == "Vacation") {
-			idx = allmodes.findIndexOf{it.name == "Away"}
-		}
-		else if (idx == -1 && armMode == "Stay") {
-			idx = allmodes.findIndexOf{it.name == "Home"}
+			idx = allmodes.findIndexOf { it.name == "Away" }
+		} else if (idx == -1 && armMode == "Stay") {
+			idx = allmodes.findIndexOf { it.name == "Home" }
 		}
 		if (idx != -1) {
 			String curmode = location.currentMode
 			String newmode = allmodes[idx].getName()
 			location.setMode(newmode)
-			ifDebug("Location Mode changed from $curmode to $newmode")
+			if (dbgEnable)
+				log.debug "${device.label}: Location Mode changed from $curmode to $newmode"
 		}
 		if (setArm == "disarm") {
 			parent.unlockIt()
 			parent.speakDisarmed()
 			sendEvent(name: "switch", value: "off")
-		}
-		else {
+		} else {
 			parent.lockIt()
 			parent.speakArmed()
 			sendEvent(name: "switch", value: "on")
 		}
 		sendLocationEvent(name: "hsmSetArm", value: setArm)
-		log.info "${device.label.trim()} changed to mode ${armMode}"
+		if (txtEnable)
+			log.info "${device.label} changed to mode ${armMode}"
 	}
 }
 
 //def armReady(){
 //	if (state.armUpStates != "Ready To Arm"){
-//		ifDebug("ready to arm")
+//		if (dbgEnable)
+//			log.debug "${device.label}: ready to arm"
 //		state.armUpStates = "Ready To Arm"
 //		parent.lockIt()
 //		parent.speakArmed()
@@ -1098,6 +1155,82 @@ def setMode(String armMode, String setArm, String armStatus) {
 //	}
 //}
 
+def registerZoneReport(String deviceNetworkId, String zoneNumber) {
+	if (dbgEnable)
+		log.debug "${device.label}: registering zone ${zoneNumber} reporting for ${deviceNetworkId}"
+	state.zoneReport = registerReport(state.zoneReport, deviceNetworkId, zoneNumber)
+}
+
+def unRegisterZoneReport(String deviceNetworkId, String zoneNumber = null) {
+	if (dbgEnable)
+		log.debug "${device.label}: unregistering zone ${zoneNumber} reporting for ${deviceNetworkId}"
+	state.zoneReport = unRegisterReport(state.zoneReport, deviceNetworkId, zoneNumber)
+}
+
+def registerOutputReport(String deviceNetworkId, String outputNumber) {
+	if (dbgEnable)
+		log.debug "${device.label}: registering output ${outputNumber} reporting for ${deviceNetworkId}"
+	state.outputReport = registerReport(state.outputReport, deviceNetworkId, outputNumber)
+}
+
+def unRegisterOutputReport(String deviceNetworkId, String outputNumber = null) {
+	if (dbgEnable)
+		log.debug "${device.label}: unregistering output ${outputNumber} reporting for ${deviceNetworkId}"
+	state.outputReport = unRegisterReport(state.outputReport, deviceNetworkId, outputNumber)
+}
+
+def registerTaskReport(String deviceNetworkId, String taskNumber) {
+	if (dbgEnable)
+		log.debug "${device.label}: registering task ${taskNumber} reporting for ${deviceNetworkId}"
+	state.taskReport = registerReport(state.taskReport, deviceNetworkId, taskNumber)
+}
+
+def unRegisterTaskReport(String deviceNetworkId, String taskNumber = null) {
+	if (dbgEnable)
+		log.debug "${device.label}: unregistering task ${taskNumber} reporting for ${deviceNetworkId}"
+	state.taskReport = unRegisterReport(state.taskReport, deviceNetworkId, taskNumber)
+}
+
+HashMap registerReport(HashMap reportList, String deviceNetworkId, String deviceNumber) {
+	if (reportList == null) {
+		reportList = [:]
+	}
+	reportList[deviceNumber] = deviceNetworkId
+	return reportList
+}
+
+HashMap unRegisterReport(HashMap reportList, String deviceNetworkId, String deviceNumber) {
+	if (reportList == null) {
+		reportList = [:]
+	} else if (deviceNumber == null) {
+		HashMap newreport = [:]
+		reportList.each {
+			if (it.value != deviceNetworkId) {
+				newreport[it.key] = value
+			}
+		}
+		reportList = newreport
+	} else {
+		reportList -= [deviceNumber: deviceNetworkId]
+	}
+	if (reportList.size() == 0)
+		reportList = null
+	return reportList
+}
+
+HashMap sendReport(HashMap reportList, zoneDevice, String deviceNumber, boolean violated) {
+	String reportDNID = reportList[deviceNumber]
+	if (reportDNID != null) {
+		def otherChild = getChildDevice(reportDNID)
+		if (otherChild != null && otherChild.hasCommand("report")) {
+			otherChild.report(zoneDevice.deviceNetworkId, violated)
+		} else {
+			reportList = unRegisterReport(reportList, reportDNID, deviceNumber)
+		}
+	}
+	return reportList
+}
+
 //Telnet
 int getReTry(Boolean inc) {
 	int reTry = (state.reTryCount ?: 0).toInteger()
@@ -1106,28 +1239,16 @@ int getReTry(Boolean inc) {
 	return reTry
 }
 
-def telnetStatus(String status){
-	log.warn "telnetStatus- error: ${status}"
+def telnetStatus(String status) {
+	log.warn "${device.label}: telnetStatus- error: ${status}"
 	if (status != "receive error: Stream is closed") {
 		getReTry(true)
 		log.error "Telnet connection dropped..."
 		initialize()
+	} else {
+		log.warn "${device.label}: Telnet is restarting..."
 	}
-	else {
-		log.warn "Telnet is restarting..."
-	}
 }
-
-private ifDebug(String msg)
-{
-	parent.ifDebug('Connection Driver: ' + msg)
-}
-
-private ifDebug(GString msg)
-{
-	parent.ifDebug('Connection Driver: ' + msg)
-}
-
 
 ////REFERENCES AND MAPPINGS////
 // Event Mapping Readable Text
@@ -1205,7 +1326,7 @@ private ifDebug(GString msg)
 @Field static final String AREA1EXITDELAYENDS = "Area 1 Exit Delay Ends"
 
 // Event Mapping
-@Field final Map 	elkResponses = [
+@Field final Map elkResponses = [
 		'1000': NoEvent,
 		'1001': FIREALARM,
 		'1002': FIRESUPERVISORYALARM,
@@ -1289,7 +1410,7 @@ private ifDebug(GString msg)
 @Field static final String ArmedtoNightInstant = "Armed To Night Instance"
 @Field static final String ArmedtoVacation = "Armed To Vacation"
 
-@Field final Map	elkArmStatuses = [
+@Field final Map elkArmStatuses = [
 		'0': Disarmed,
 		'1': ArmedAway,
 		'2': ArmedStay,
@@ -1306,7 +1427,7 @@ private ifDebug(GString msg)
 @Field static final String ForceArmed = "Force Armed with a force arm zone violated"
 @Field static final String ArmedwithaBypass = "Armed with a Bypass"
 
-@Field final Map	elkArmUpStates = [
+@Field final Map elkArmUpStates = [
 		'0': NotReadytoArm,
 		'1': ReadytoArm,
 		'2': ReadytoArmBut,
@@ -1336,7 +1457,7 @@ private ifDebug(GString msg)
 @Field static final String FireSupervisory = "Fire Supervisory"
 @Field static final String FireVerified = "Fire Verified"
 
-@Field final Map	elkAlarmStates = [
+@Field final Map elkAlarmStates = [
 		'0': NoActiveAlarm,
 		'1': EntranceDelayisActive,
 		'2': AlarmAbortDelayActive,
@@ -1376,7 +1497,7 @@ private ifDebug(GString msg)
 @Field static final String BypassedShort = "Bypassed: Short"
 
 // Zone Status Mapping
-@Field final Map	elkZoneStatuses = [
+@Field final Map elkZoneStatuses = [
 		'0': NormalUnconfigured,
 		'1': NormalOpen,
 		'2': NormalEOL,
@@ -1398,7 +1519,7 @@ private ifDebug(GString msg)
 @Field static final String Off = "off"
 @Field static final String On = "on"
 
-@Field final Map	elkOutputStates = [
+@Field final Map elkOutputStates = [
 		"0": Off,
 		"1": On
 ]
@@ -1406,14 +1527,14 @@ private ifDebug(GString msg)
 @Field static final String Fahrenheit = "Fahrenheit"
 @Field static final String Celcius = "Celcius"
 
-@Field final Map	elkTemperatureModes = [
+@Field final Map elkTemperatureModes = [
 		F: Fahrenheit,
 		C: Celcius
 ]
 
 @Field static final String User = "User"
 
-@Field final Map	elkUserCodeTypes = [
+@Field final Map elkUserCodeTypes = [
 		1: User,
 ]
 
@@ -1437,17 +1558,17 @@ private ifDebug(GString msg)
 @Field static final String FunctionKey6Name = "FunctionKey6 Name"
 
 
-@Field final Map	elkTextDescriptionsTypes = [
-		'0': ZoneName,
-		'1': AreaName,
-		'2': UserName,
-		'3': Keypad,
-		'4': OutputName,
-		'5': TaskName,
-		'6': TelephoneName,
-		'7': LightName,
-		'8': AlarmDurationName,
-		'9': CustomSettings,
+@Field final Map elkTextDescriptionsTypes = [
+		'0' : ZoneName,
+		'1' : AreaName,
+		'2' : UserName,
+		'3' : Keypad,
+		'4' : OutputName,
+		'5' : TaskName,
+		'6' : TelephoneName,
+		'7' : LightName,
+		'8' : AlarmDurationName,
+		'9' : CustomSettings,
 		'10': CountersNames,
 		'11': ThermostatNames,
 		'12': FunctionKey1Name,
@@ -1463,7 +1584,7 @@ private ifDebug(GString msg)
 @Field static final String Keypads = "Keypads"
 @Field static final String Thermostats = "Thermostats"
 
-@Field final Map	elkTempTypes = [
+@Field final Map elkTempTypes = [
 		0: TemperatureProbe,
 		1: Keypads,
 		2: Thermostats
@@ -1482,64 +1603,64 @@ private ifDebug(GString msg)
 @Field static final String Fanturnedon = "Fan turned on"
 
 
-@Field final Map 	elkThermostatMode = ['0': off, '1': heat, '2': cool, '3': auto, '4': emergencyHeat]
-@Field final Map 	elkThermostatHold = ['0': False, '1': True]
-@Field final Map 	elkThermostatFan = ['0': FanAuto, '1': Fanturnedon]
+@Field final Map elkThermostatMode = ['0': off, '1': heat, '2': cool, '3': auto, '4': emergencyHeat]
+@Field final Map elkThermostatHold = ['0': False, '1': True]
+@Field final Map elkThermostatFan = ['0': FanAuto, '1': Fanturnedon]
 
-@Field final Map 	elkThermostatModeSet = [off: '0', heat: '1', cool: '2', auto: '3', 'emergency heat': '4']
-@Field final Map 	elkThermostatFanModeSet = [auto: '0', on: '1', circulate: '0']
+@Field final Map elkThermostatModeSet = [off: '0', heat: '1', cool: '2', auto: '3', 'emergency heat': '4']
+@Field final Map elkThermostatFanModeSet = [auto: '0', on: '1', circulate: '0']
 
 
-@Field final Map	elkCommands = [
+@Field final Map elkCommands = [
 
-		Disarm: "a0",
-		ArmAway: "a1",
-		ArmHome: "a2",
-		ArmStayInstant: "a3",
-		ArmNight: "a4",
-		ArmNightInstant: "a5",
-		ArmVacation: "a6",
-		ArmStepAway: "a7",
-		ArmStepStay: "a8",
-		RequestArmStatus: "as",
-		AlarmByZoneRequest: "az",
-		RequestTemperatureData: "lw",
-		RequestRealTimeClockRead: "rr",
-		RealTimeClockWrite: "rw",
-		RequestTextDescriptions: "sd",
-		Speakphrase: "sp",
+		Disarm                    : "a0",
+		ArmAway                   : "a1",
+		ArmHome                   : "a2",
+		ArmStayInstant            : "a3",
+		ArmNight                  : "a4",
+		ArmNightInstant           : "a5",
+		ArmVacation               : "a6",
+		ArmStepAway               : "a7",
+		ArmStepStay               : "a8",
+		RequestArmStatus          : "as",
+		AlarmByZoneRequest        : "az",
+		RequestTemperatureData    : "lw",
+		RequestRealTimeClockRead  : "rr",
+		RealTimeClockWrite        : "rw",
+		RequestTextDescriptions   : "sd",
+		Speakphrase               : "sp",
 		RequestSystemTroubleStatus: "ss",
-		Requesttemperature: "st",
-		Speakword: "sw",
-		TaskActivation: "tn",
-		RequestThermostatData: "tr",
-		SetThermostatData: "ts",
-		Requestusercodeareas: "ua",
-		requestVersionNumberofM1: "vn",
-		ReplyfromEthernettest: "xk",
-		Zonebypassrequest: "zb",
-		RequestZoneDefinitions: "zd",
-		Zonepartitionrequest: "zp",
-		RequestZoneStatus: "zs",
-		RequestZoneanalogvoltage: "zv",
-		SetThermostatData: "ts",
-		setHeatingSetpoint: "ts",
-		setCoolingSetpoint: "ts",
-		setThermostatSetpoint: "ts",
-		setThermostatFanMode: "ts",
-		setThermostatMode: "ts",
-		auto: "ts",
-		cool: "ts",
-		emergencyHeat: "ts",
-		fanAuto: "ts",
-		fanCirculate: "ts",
-		fanOn: "ts",
-		heat: "ts",
-		off: "ts",
-		ControlOutputOn: "cn",
-		ControlOutputOff: "cf",
-		ControlOutputToggle: "ct",
-		RequestOutputStatus: "cs"
+		Requesttemperature        : "st",
+		Speakword                 : "sw",
+		TaskActivation            : "tn",
+		RequestThermostatData     : "tr",
+		SetThermostatData         : "ts",
+		Requestusercodeareas      : "ua",
+		requestVersionNumberofM1  : "vn",
+		ReplyfromEthernettest     : "xk",
+		Zonebypassrequest         : "zb",
+		RequestZoneDefinitions    : "zd",
+		Zonepartitionrequest      : "zp",
+		RequestZoneStatus         : "zs",
+		RequestZoneanalogvoltage  : "zv",
+		SetThermostatData         : "ts",
+		setHeatingSetpoint        : "ts",
+		setCoolingSetpoint        : "ts",
+		setThermostatSetpoint     : "ts",
+		setThermostatFanMode      : "ts",
+		setThermostatMode         : "ts",
+		auto                      : "ts",
+		cool                      : "ts",
+		emergencyHeat             : "ts",
+		fanAuto                   : "ts",
+		fanCirculate              : "ts",
+		fanOn                     : "ts",
+		heat                      : "ts",
+		off                       : "ts",
+		ControlOutputOn           : "cn",
+		ControlOutputOff          : "cf",
+		ControlOutputToggle       : "ct",
+		RequestOutputStatus       : "cs"
 ]
 
 @Field static final String Disabled = "Disabled"
@@ -1567,7 +1688,7 @@ private ifDebug(GString msg)
 @Field static final String PhoneKey = "Phone Key"
 @Field static final String IntercomKey = "Intercom Key"
 
-@Field final Map	elkZoneDefinitions = [
+@Field final Map elkZoneDefinitions = [
 		'0': Disabled,
 		'1': BurglarEntryExit1,
 		'2': BurglarEntryExit2,
@@ -1634,7 +1755,7 @@ private ifDebug(GString msg)
 @Field static final String AlertWaterAlarm = "Alert"
 
 //Not currently using this
-@Field final Map	elkZoneTypes = [
+@Field final Map elkZoneTypes = [
 //'0': Disabled,
 '1': ContactBurglarEntryExit1,
 '2': ContactBurglarEntryExit2,
@@ -1664,6 +1785,15 @@ private ifDebug(GString msg)
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.30
+ * Added polling of device status once connected or reconnected to the panel.
+ * Added Enable debug logging and Enable descriptionText logging to the main device.  Debug is no longer set for the
+ *   driver from within the application.  Info logging can now be turned on or off for the main device.
+ * Added zone, output and task reporting so child devices can register to be updated via the report command when another
+ *   device status has changed.
+ *   I am using this for a door control driver assigned to an output that needs to be aware of the state of the contact
+ *   attached to the door.
  *
  * 0.1.29
  * Strongly typed variables for performance
@@ -1789,7 +1919,7 @@ private ifDebug(GString msg)
  ***********************************************************************************************************************/
 /***********************************************************************************************************************
  *
- *Feature Request & Known Issues
+ * Feature Request & Known Issues
  * I - Area is hard coded to 1
  * F - Import Zone data from Elk
  * F - Controls for thermostat 1 (mulitple)
