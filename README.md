@@ -7,7 +7,23 @@ Copy the Elk M1 Application code from GitHub into a ‘New App’ under the ‘A
 
 Copy the Elk M1 Driver code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
 
+Copy the Elk M1 Driver Output code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
+
+Copy the Elk M1 Driver Task code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
+
 Copy the Elk M1 Driver Thermostat code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
+
+Optionally you may add the following and change your child device driver after import to use if desired:
+
+Copy the Elk M1 Driver Output DoorControl code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
+
+Copy the Virtual Carbon Monoxide Detector code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
+
+Copy the Virtual Smoke Detector code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
+
+Copy the Virtual Tamper Alert Detector code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
+
+Copy the Virtual Water Sensor code from GitHub into a a ‘New Driver’ under the 'Drivers Code' menu then click ‘Save’
 
 Go to ‘Apps’
 
