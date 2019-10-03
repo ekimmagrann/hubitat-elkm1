@@ -16,13 +16,13 @@
  *  I am not a programmer so alot of this work is through trial and error. I also spent a good amount of time looking
  *  at other integrations on various platforms.
  *
- ***See Release Notes at the bottom***
+ *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
 public static String version() { return "v0.1.5" }
 
 metadata {
-	definition (name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
+	definition(name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
 		capability "Switch"
 		capability "Momentary"
 		command "writeLog", ["string"]
@@ -83,7 +83,7 @@ def off() {
  ***********************************************************************************************************************/
 /***********************************************************************************************************************
  *
- *Feature Request & Known Issues
+ * Feature Request & Known Issues
  *
  *
  ***********************************************************************************************************************/
