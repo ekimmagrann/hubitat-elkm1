@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.29" }
+public static String version() { return "v0.1.30" }
 
 public static boolean isDebug() { return true }
 import groovy.transform.Field
