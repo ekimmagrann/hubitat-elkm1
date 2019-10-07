@@ -22,107 +22,146 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.5" }
+public static String version() { return "v0.1.6" }
 
-public static boolean isDebug() { return true }
-
+import groovy.transform.Field
 
 metadata {
 	definition(name: "Elk M1 Driver Thermostat", namespace: "belk", author: "Mike Magrann") {
 		capability "Thermostat"
-//        command "RequestThermostatData"
+		command "refresh"
+	}
+	preferences {
+		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
 	}
 }
 
-def RequestThermostatData() {
-	ifDebug("requestTstatData()")
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	ifDebug("requestTstatData()" + tstat)
-	getParent().RequestThermostatData(tstat)
+def installed() {
+	"Installed..."
+	refresh()
 }
-//NEW CODE
-def setThermostatMode(String thermostatmode) {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().setThermostatMode(thermostatmode, tstat)
+
+def uninstalled() {
+}
+
+def parse(String description) {
+	String mode = elkThermostatMode[description.substring(6, 7)]
+	String hold = elkThermostatHold[description.substring(7, 8)]
+	String fan = elkThermostatFan[description.substring(8, 9)]
+	String cTemp = description.substring(9, 11)
+	String hSet = description.substring(11, 13)
+	String cSet = description.substring(13, 15)
+	String cHumid = description.substring(15, 17)
+	if (txtEnable)
+		log.info "${device.label} ${mode} Mode, Hold temperature = ${hold}, ${fan}, Current Temperature = " +
+				"${cTemp}, Heat Setpoint = ${hSet}, Cool Setpoint = ${cSet}, Humidity = ${cHumid}"
+	sendEvent(name: "coolingSetpoint", value: cSet)
+	sendEvent(name: "heatingSetpoint", value: hSet)
+	sendEvent(name: "temperature", value: cTemp)
+	sendEvent(name: "thermostatFanMode", value: fan)
+	sendEvent(name: "thermostatMode", value: mode)
+	if (mode == Heat || mode == EmergencyHeat) {
+		sendEvent(name: "thermostatSetpoint", value: hSet)
+	} else if (mode == Cool) {
+		sendEvent(name: "thermostatSetpoint", value: cSet)
+	} else {
+		sendEvent(name: "thermostatSetpoint", value: "")
+	}
+}
+
+def parse(List description) {
+	log.warn "parse(List description) received ${description}"
+	return
 }
 
 def auto() {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().auto(tstat)
-}
-
-def heat() {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().heat(tstat)
-}
-
-def EmergencyHeat() {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().EmergencyHeat(tstat)
+	parent.setThermostatMode(Auto, getThermID())
 }
 
 def cool() {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().cool(tstat)
+	parent.setThermostatMode(Cool, getThermID())
 }
 
-def off() {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().off(tstat)
-}
-
-def setThermostatFanMode(fanmode) {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().setThermostatFanMode(fanmode, tstat)
-}
-
-def fanOn() {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().fanOn(tstat)
+def emergencyHeat() {
+	parent.setThermostatMode(EmergencyHeat, getThermID())
 }
 
 def fanAuto() {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().fanAuto(tstat)
+	parent.setThermostatFanMode(Auto, getThermID())
 }
 
 def fanCirculate() {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().fanCirculate(tstat)
+	parent.setThermostatFanMode(Circulate, getThermID())
 }
 
-def setHeatingSetpoint(BigDecimal degrees) {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().setHeatingSetpoint(degrees, tstat)
+def fanOn() {
+	parent.setThermostatFanMode(On, getThermID())
+}
+
+def heat() {
+	parent.setThermostatMode(Heat, getThermID())
+}
+
+def off() {
+	parent.setThermostatMode(Off, getThermID())
 }
 
 def setCoolingSetpoint(BigDecimal degrees) {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().setCoolingSetpoint(degrees, tstat)
+	parent.setCoolingSetpoint(degrees, getThermID())
 }
 
-def SetThermostatData() {
-	String tstat = device.deviceNetworkId
-	tstat = tstat.substring(tstat.length() - 2).take(2)
-	getParent().SetThermostatData()
+def setHeatingSetpoint(BigDecimal degrees) {
+	parent.setHeatingSetpoint(degrees, getThermID())
 }
+
+def setSchedule(schedule) {
+}
+
+def setThermostatFanMode(String fanmode) {
+	parent.setThermostatFanMode(fanmode, getThermID())
+}
+
+def setThermostatHoldMode(String holdmode) {
+	parent.setThermostatHoldMode(holdmode, getThermID())
+}
+
+def setThermostatMode(String thermostatmode) {
+	parent.setThermostatMode(thermostatmode, getThermID())
+}
+
+def refresh() {
+	parent.RequestThermostatData(getThermID())
+}
+
+String getThermID() {
+	String DNID = device.deviceNetworkId
+	return DNID.substring(DNID.length() - 2).take(2)
+}
+
+@Field final Map elkThermostatMode = ['0': Off, '1': Heat, '2': Cool, '3': Auto, '4': EmergencyHeat]
+@Field final Map elkThermostatHold = ['0': False, '1': True]
+@Field final Map elkThermostatFan = ['0': FanAuto, '1': FanOn]
+
+@Field static final String On = "on"
+@Field static final String Off = "off"
+@Field static final String Heat = "heat"
+@Field static final String Cool = "cool"
+@Field static final String Auto = "auto"
+@Field static final String Circulate = "circulate"
+@Field static final String EmergencyHeat = "emergency heat"
+@Field static final String False = "false"
+@Field static final String True = "true"
+@Field static final String FanAuto = "fan auto"
+@Field static final String FanOn = "fan on"
 
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.6
+ * Added Refresh Command
+ * Added info logging
+ * Simplified calls to parent driver
  *
  * 0.1.5
  * Strongly typed variables for performance
@@ -143,8 +182,7 @@ def SetThermostatData() {
  *
  * Feature Request & Known Issues
  *
- * I - System configuration needs to be set up manually on the device page
- * F - Transfer System configuration from Elk M1 Application
+ * I - Set Hold Mode not currently supported
  * I - Set Schedule not currently supported
  *
  ***********************************************************************************************************************/
