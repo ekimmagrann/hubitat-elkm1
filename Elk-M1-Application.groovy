@@ -18,7 +18,7 @@
  ***********************************************************************************************************************/
 //Adding thermostat support
 
-public static String version() { return "v0.1.8" }
+public static String version() { return "v0.1.9" }
 
 definition(
 		name: "Elk M1 Application",
@@ -247,7 +247,7 @@ def defineZoneMapImport() {
 		section("<h1>Import Elk Zones</h1>") {
 			paragraph "Create a Map for a zone in Elk M1"
 			input "deviceType", "enum", title: "Select Device Type", required: true, multiple: false,
-					options: [['00': "Zones"], ['04': "Output"], ['05': "Task"], ['03': "Keypad"]]
+					options: [['00': "Zones"], ['04': "Output"], ['05': "Task"], ['11': "Thermostat"], ['03': "Keypad"]]
 		}
 	}
 }
@@ -546,6 +546,9 @@ private removeChildDevices(delete) {
  *
  * Release Notes
  *
+ * Version: 0.1.9
+ * Added Thermostat to list of automatic import devices.
+ *
  * Version: 0.1.8
  * Added Keypad device type to import for their built in temperature sensor.
  *
@@ -580,6 +583,5 @@ private removeChildDevices(delete) {
  * Feature Request & Known Issues
  *
  * I - Must initialize the Elk M1 Device prior to using the Elk M1 App Import Zone functions
- * I - System configuration needs to be set up manually on the thermostat device page
  *
  */
