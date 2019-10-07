@@ -17,7 +17,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 metadata {
 	definition(name: "Elk M1 Driver Output-DoorControl", namespace: "captncode", author: "captncode") {
@@ -26,8 +26,8 @@ metadata {
 		command "close"
 		command "open"
 		command "push"
-		command "writeLog", ["string"]
 		command "report", ["bool", "string"]
+		command "refresh"
 		attribute "door", "string"
 	}
 	preferences {
@@ -38,17 +38,12 @@ metadata {
 	}
 }
 
-def writeLog(String cmd) {
-	if (txtEnable && cmd == "on") {
-		log.info "${device.label} is pushed"
-	}
-}
-
 def updated() {
 	log.info "Updated..."
 	log.warn "${device.label} description logging is: ${txtEnable == true}"
 	log.warn "${device.label} door contact zone is: ${zoneNumber}"
-	refresh()
+	parent.unRegisterZoneReport(device.deviceNetworkId)
+	parent.registerZoneReport(device.deviceNetworkId, String.format("%03d", zoneNumber.intValue()))
 }
 
 def installed() {
@@ -57,13 +52,18 @@ def installed() {
 	refresh()
 }
 
-def refresh() {
-	parent.unRegisterZoneReport(device.deviceNetworkId)
-	parent.registerZoneReport(device.deviceNetworkId, String.format("%03d", zoneNumber.intValue()))
-}
-
 def uninstalled() {
 	parent.unRegisterZoneReport(device.deviceNetworkId)
+}
+
+def parse(String description) {
+	if (txtEnable && description == "on")
+		log.info "${device.label} is pushed"
+}
+
+def parse(List description) {
+	log.warn "parse(List description) received ${description}"
+	return
 }
 
 def report(String deviceDNID, boolean violated) {
@@ -111,9 +111,17 @@ def open() {
 	}
 }
 
+def refresh() {
+	parent.RequestOutputStatus()
+}
+
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.1
+ * Added Refresh Command
+ * Simplified logging and event code
  *
  * 0.1.0
  * New child driver to Elk M1 Output-DoorControl

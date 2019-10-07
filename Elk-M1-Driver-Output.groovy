@@ -19,28 +19,41 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.5" }
+public static String version() { return "v0.1.6" }
 
 metadata {
 	definition(name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
 		capability "Switch"
 		capability "Momentary"
-		command "writeLog", ["string"]
+		command "refresh"
 	}
 	preferences {
 		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
 	}
 }
 
-def writeLog(String cmd) {
-	if (txtEnable) {
-		log.info "${device.label} is ${cmd}"
-	}
-}
-
 def updated() {
 	log.info "Updated..."
 	log.warn "${device.label} description logging is: ${txtEnable == true}"
+}
+
+def installed() {
+	"Installed..."
+	refresh()
+}
+
+def uninstalled() {
+}
+
+def parse(String description) {
+	if (txtEnable)
+		log.info "${device.label} is ${description}"
+	sendEvent(name: "switch", value: description, isStateChange: true)
+}
+
+def parse(List description) {
+	log.warn "parse(List description) received ${description}"
+	return
 }
 
 def push() {
@@ -61,9 +74,17 @@ def off() {
 	parent.ControlOutputOff(output.toInteger())
 }
 
+def refresh() {
+	parent.RequestOutputStatus()
+}
+
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.6
+ * Added Refresh Command
+ * Simplified logging and event code
  *
  * 0.1.5
  * Strongly typed variables for performance

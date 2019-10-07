@@ -19,28 +19,43 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.5" }
+public static String version() { return "v0.1.6" }
 
 metadata {
 	definition(name: "Elk M1 Driver Tasks", namespace: "belk", author: "Mike Magrann") {
 		capability "Switch"
 		capability "Momentary"
-		command "writeLog"
+		command "refresh"
 	}
 	preferences {
 		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
 	}
 }
 
-def writeLog() {
-	if (txtEnable) {
-		log.info "${device.label} is activated"
-	}
-}
-
 def updated() {
 	log.info "Updated..."
 	log.warn "${device.label} description logging is: ${txtEnable == true}"
+}
+
+def installed() {
+	"Installed..."
+	refresh()
+}
+
+def uninstalled() {
+}
+
+def parse(String description) {
+	if (description == "on") {
+		if (txtEnable)
+			log.info "${device.label} is activated"
+	}
+	sendEvent(name: "switch", value: description, isStateChange: true)
+}
+
+def parse(List description) {
+	log.warn "parse(List description) received ${description}"
+	return
 }
 
 def push() {
@@ -57,13 +72,21 @@ def off() {
 	sendEvent(name: "switch", value: "off", isStateChange: true)
 }
 
+def refresh() {
+	off()
+}
+
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
  *
+ * 0.1.6
+ * Added Refresh Command
+ * Simplified logging and event code
+ *
  * 0.1.5
  * Strongly typed variables for performance
-
+ *
  * 0.1.4
  * Added info logging
  *
