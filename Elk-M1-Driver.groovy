@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.31" }
+public static String version() { return "v0.1.32" }
 
 import groovy.transform.Field
 
@@ -630,7 +630,7 @@ def temperatureData(String message) {
 }
 
 def statusTemperature(String message) {
-	String group = elkTempTypes[message.substring(4, 5)]
+	String group = elkTempTypes[message.substring(4, 5).toInteger()]
 	String zoneNumber = message.substring(5, 7)
 	int temp = message.substring(7, 10).toInteger()
 	def zoneDevice
@@ -1676,6 +1676,9 @@ def telnetStatus(String status) {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.32
+ * Fixed issue with temperature readings.
  *
  * 0.1.31
  * Added handling of Temperature Data automatically sent starting with M1 Ver. 4.2.8
