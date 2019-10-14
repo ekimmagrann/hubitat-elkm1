@@ -18,7 +18,7 @@
  ***********************************************************************************************************************/
 //Adding thermostat support
 
-public static String version() { return "v0.1.9" }
+public static String version() { return "v0.1.10" }
 
 definition(
 		name: "Elk M1 Application",
@@ -38,6 +38,7 @@ preferences {
 	page(name: "notificationPage", nextPage: "mainPage")
 	page(name: "lockPage", nextPage: "mainPage")
 	page(name: "defineZoneMap", nextPage: "zoneMapsPage")
+	page(name: "defineLightMap", nextPage: "zoneMapsPage")
 	page(name: "defineZoneMapImport", nextPage: "importZones")
 	page(name: "importZones", nextPage: "zoneMapsPage")
 	page(name: "editZoneMapPage", nextPage: "zoneMapsPage")
@@ -48,7 +49,6 @@ preferences {
 def mainPage() {
 	ifDebug("Showing mainPage")
 	state.isDebug = isDebug
-	//state.allZones = null - CC
 	return dynamicPage(name: "mainPage", title: "", install: false, uninstall: true) {
 		if (!state.elkM1IntegrationInstalled && getChildDevices().size() == 0) {
 			section("Define your Elk M1 device") {
@@ -63,7 +63,7 @@ def mainPage() {
 			//getChildDevice(state.ElkM1DNI).updateSetting("dbgEnable",[type:"bool", value:isDebug])
 			section("<h1>Device Mapping</h1>") {
 				href(name: "zoneMapsPage", title: "Devices",
-						description: "Create Virtual Devices and Map them to Existing Zones, Outputs, Tasks and/or Thermostats in your Elk M1 setup",
+						description: "Create Virtual Devices and Map them to Existing Zones, Keypads, Outputs, Tasks, Thermostats and/or Lighting Devices in your Elk M1 setup",
 						page: "zoneMapsPage")
 			}
 
@@ -198,9 +198,9 @@ def zoneMapsPage() {
 	dynamicPage(name: "zoneMapsPage", title: "", install: true, uninstall: false) {
 
 		section("<h1>Device Maps</h1>") {
-			paragraph "The partition of your Elk M1 Installation may consist of Zones, Outputs, Tasks and Thermostats.  You can choose to map the devices manually or use the import method. "
+			paragraph "The partition of your Elk M1 Installation may consist of Zones, Keypads, Outputs, Tasks, Thermostats and Lighting Devices.  You can choose to map the devices manually or use the import method. "
 			paragraph "You'll want to determine the device number as it is defined in your Elk M1 setup. " +
-					" Define a new device in Elk M1 application and the application will then create either a Virtual sensor component device or an Elk Child device , which will report the state of the Elk M1 device to which it is mapped. " +
+					" Define a new device in Elk M1 application and the application will then create either a Virtual sensor component device or an Elk Child device, which will report the state of the Elk M1 device to which it is mapped. " +
 					" The devices can be used in Rule Machine or any other application that is capable of leveraging the devices capability.  Elk M1 is capable of 208 zones, your zone map should correspond to the numeric representation of that zone."
 		}
 		section("<h2>Create New Devices</h2>") {
@@ -212,6 +212,11 @@ def zoneMapsPage() {
 			href(name: "createZoneMapPage", title: "Create a Device Map",
 					description: "Create a Virtual Device Manually",
 					page: "defineZoneMap")
+		}
+		section("") {
+			href(name: "createLightMapPage", title: "Create a Lighting Device Map",
+					description: "Create a Virtual Lighting Device Manually",
+					page: "defineLightMap")
 		}
 
 		section("<h2>Existing Devices</h2>") {
@@ -239,6 +244,22 @@ def defineZoneMap() {
 	}
 }
 
+def defineLightMap() {
+	ifDebug("Showing defineLightMap")
+	state.creatingZone = true;
+	dynamicPage(name: "defineLightMap", title: "") {
+		section("<h1>Create a Device Map</h1>") {
+			paragraph "Create a Map for a lighting device in Elk M1"
+			input "zoneName", "text", title: "Device Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
+			input "zoneType", "enum", title: "Which Lighting Group?", required: true, multiple: false,
+					options: [['A': "A"], ['B': "B"], ['C': "C"], ['D': "D"], ['E': "E"], ['F': "F"], ['G': "G"], ['H': "H"],
+					          ['I': "I"], ['J': "J"], ['K': "K"], ['L': "L"], ['M': "M"], ['N': "N"], ['O': "O"], ['P': "P"]]
+			input "zoneNumber", "number", title: "Which Device 1-16", required: true, multiple: false, defaultValue: 1,
+					range: "1..16", submitOnChange: false
+		}
+	}
+}
+
 def defineZoneMapImport() {
 	ifDebug("Showing defineZoneMapImport")
 	getChildDevice(state.ElkM1DNI).initialize()
@@ -247,7 +268,7 @@ def defineZoneMapImport() {
 		section("<h1>Import Elk Zones</h1>") {
 			paragraph "Create a Map for a zone in Elk M1"
 			input "deviceType", "enum", title: "Select Device Type", required: true, multiple: false,
-					options: [['00': "Zones"], ['04': "Output"], ['05': "Task"], ['11': "Thermostat"], ['03': "Keypad"]]
+					options: [['00': "Zones"], ['04': "Output"], ['05': "Task"], ['07': "Lighting"], ['11': "Thermostat"], ['03': "Keypad"]]
 		}
 	}
 }
@@ -255,25 +276,13 @@ def defineZoneMapImport() {
 def editZoneMapPage(message) {
 	ifDebug("Showing editZoneMapPage")
 	ifDebug("editing ${message.deviceNetworkId}")
-	//state.allZones = getChildDevice(state.ElkM1DNI).getChildDevices() - CC
 	def zoneDevice = getChildDevice(state.ElkM1DNI).getChildDevice(message.deviceNetworkId)
 	def paragraphText = ""
 	state.editedZoneDNI = message.deviceNetworkId;
-	if (zoneDevice.capabilities.find { item -> item.name.startsWith('Motion') }) {
-		paragraphText = paragraphText + "Motion Sensor\n"
+	zoneDevice.capabilities.each {
+		if (it.name != "Actuator")
+			paragraphText = paragraphText + it.name + "\n"
 	}
-	if (zoneDevice.capabilities.find { item -> item.name.startsWith('Contact') }) {
-		paragraphText = paragraphText + "Contact Sensor\n"
-	}
-	if (zoneDevice.capabilities.find { item -> item.name.startsWith('Thermostat') }) {
-		paragraphText = paragraphText + "Thermostat\n"
-	}
-	if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch') }) {
-		paragraphText = paragraphText + "Virtual Switch\n"
-	}
-//	if (zoneDevice.capabilities.find { item -> item.name.startsWith('Switch')}){
-//		paragraphText = paragraphText + "Virtual Switch\n"
-//	}
 	dynamicPage(name: "editZoneMapPage", title: "") {
 		section("<h1>${zoneDevice.label}</h1>") {
 			paragraph paragraphText
@@ -335,10 +344,14 @@ def importZones() {
 }
 
 def createZone() {
-	ifDebug("Starting validation of ${zoneName} ZoneType: ${zoneType} ZoneNumber: ${zoneNumber}")
-	String formatted = String.format("%03d", zoneNumber)
-	def zoneNumberFormatted = formatted
+	String zoneNumberFormatted
+	if (zoneType.length() == 1 && zoneType >= 'A' && zoneType <= 'P') {
+		zoneNumber = "ABCDEFGHIJKLMNOP".indexOf(zoneType) * 16 + zoneNumber.toInteger()
+		zoneType = '07'
+	}
+	zoneNumberFormatted = String.format("%03d", zoneNumber)
 	def zoneText
+	ifDebug("Starting validation of ${zoneName} ZoneType: ${zoneType} ZoneNumber: ${zoneNumber}")
 	getChildDevice(state.ElkM1DNI).createZone([zoneNumber: zoneNumberFormatted, zoneName: zoneName, zoneType: zoneType, zoneText: zoneText])
 	state.creatingZone = false;
 }
@@ -545,6 +558,9 @@ private removeChildDevices(delete) {
 /***********************************************************************************************************************
  *
  * Release Notes
+ *
+ * Version: 0.1.10
+ * Added import of Lighting devices.
  *
  * Version: 0.1.9
  * Added Thermostat to list of automatic import devices.
