@@ -1,6 +1,6 @@
 /***********************************************************************************************************************
  *
- *  A Hubitat Child Driver using Telnet to connect to the Elk M1 via the M1XEP.
+ *  A Hubitat Child Driver using Telnet to connect to the Elk M1 via the M1XEP or C1M1.
  *
  *  License:
  *  This program is free software: you can redistribute it and/or modify it under the terms of the GNU
@@ -22,14 +22,17 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.6" }
+public static String version() { return "v0.1.7" }
 
 import groovy.transform.Field
 
 metadata {
 	definition(name: "Elk M1 Driver Thermostat", namespace: "belk", author: "Mike Magrann") {
+		capability "Actuator"
 		capability "Thermostat"
-		command "refresh"
+		capability "RelativeHumidityMeasurement"
+		capability "Refresh"
+		attribute "hold", "Boolean"
 	}
 	preferences {
 		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
@@ -38,6 +41,7 @@ metadata {
 
 def installed() {
 	"Installed..."
+	device.updateSetting("txtEnable", [type: "bool", value: true])
 	refresh()
 }
 
@@ -52,20 +56,53 @@ def parse(String description) {
 	String hSet = description.substring(11, 13)
 	String cSet = description.substring(13, 15)
 	String cHumid = description.substring(15, 17)
-	if (txtEnable)
-		log.info "${device.label} ${mode} Mode, Hold temperature = ${hold}, ${fan}, Current Temperature = " +
-				"${cTemp}, Heat Setpoint = ${hSet}, Cool Setpoint = ${cSet}, Humidity = ${cHumid}"
-	sendEvent(name: "coolingSetpoint", value: cSet)
-	sendEvent(name: "heatingSetpoint", value: hSet)
-	sendEvent(name: "temperature", value: cTemp)
-	sendEvent(name: "thermostatFanMode", value: fan)
-	sendEvent(name: "thermostatMode", value: mode)
+	if (device.currentState("coolingSetpoint")?.value == null || device.currentState("coolingSetpoint").value != cSet) {
+		sendEvent(name: "coolingSetpoint", value: cSet)
+		if (txtEnable)
+			log.info "${device.label} coolingSetpoint is ${cSet}°"
+	}
+	if (device.currentState("heatingSetpoint")?.value == null || device.currentState("heatingSetpoint").value != hSet) {
+		sendEvent(name: "heatingSetpoint", value: hSet)
+		if (txtEnable)
+			log.info "${device.label} heatingSetpoint is ${hSet}°"
+	}
+	if (device.currentState("humidity")?.value == null || device.currentState("humidity").value != cHumid) {
+		sendEvent(name: "humidity", value: cHumid)
+		if (txtEnable)
+			log.info "${device.label} humidity is ${cHumid}%"
+	}
+	if (device.currentState("hold")?.value == null || device.currentState("hold").value != hold) {
+		sendEvent(name: "hold", value: hold)
+		if (txtEnable)
+			log.info "${device.label} hold is ${hold}"
+	}
+	if (device.currentState("temperature")?.value == null || device.currentState("temperature").value != cTemp) {
+		sendEvent(name: "temperature", value: cTemp)
+		if (txtEnable)
+			log.info "${device.label} temperature is ${cTemp}°"
+	}
+	if (device.currentState("thermostatFanMode")?.value == null || device.currentState("thermostatFanMode").value != fan) {
+		sendEvent(name: "thermostatFanMode", value: fan)
+		if (txtEnable)
+			log.info "${device.label} thermostatFanMode is ${fan}"
+	}
+	if (device.currentState("thermostatMode")?.value == null || device.currentState("thermostatMode").value != mode) {
+		sendEvent(name: "thermostatMode", value: mode)
+		if (txtEnable)
+			log.info "${device.label} thermostatMode is set to ${mode}"
+	}
 	if (mode == Heat || mode == EmergencyHeat) {
-		sendEvent(name: "thermostatSetpoint", value: hSet)
+		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != hSet) {
+			sendEvent(name: "thermostatSetpoint", value: hSet)
+		}
 	} else if (mode == Cool) {
-		sendEvent(name: "thermostatSetpoint", value: cSet)
+		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != cSet) {
+			sendEvent(name: "thermostatSetpoint", value: cSet)
+		}
 	} else {
-		sendEvent(name: "thermostatSetpoint", value: "")
+		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != " ") {
+			sendEvent(name: "thermostatSetpoint", value: " ")
+		}
 	}
 }
 
@@ -75,62 +112,62 @@ def parse(List description) {
 }
 
 def auto() {
-	parent.setThermostatMode(Auto, getThermID())
+	parent.sendMsg(parent.setThermostatMode(Auto, getThermID()))
 }
 
 def cool() {
-	parent.setThermostatMode(Cool, getThermID())
+	parent.sendMsg(parent.setThermostatMode(Cool, getThermID()))
 }
 
 def emergencyHeat() {
-	parent.setThermostatMode(EmergencyHeat, getThermID())
+	parent.sendMsg(parent.setThermostatMode(EmergencyHeat, getThermID()))
 }
 
 def fanAuto() {
-	parent.setThermostatFanMode(Auto, getThermID())
+	parent.sendMsg(parent.setThermostatFanMode(Auto, getThermID()))
 }
 
 def fanCirculate() {
-	parent.setThermostatFanMode(Circulate, getThermID())
+	parent.sendMsg(parent.setThermostatFanMode(Circulate, getThermID()))
 }
 
 def fanOn() {
-	parent.setThermostatFanMode(On, getThermID())
+	parent.sendMsg(parent.setThermostatFanMode(On, getThermID()))
 }
 
 def heat() {
-	parent.setThermostatMode(Heat, getThermID())
+	parent.sendMsg(parent.setThermostatMode(Heat, getThermID()))
 }
 
 def off() {
-	parent.setThermostatMode(Off, getThermID())
+	parent.sendMsg(parent.setThermostatMode(Off, getThermID()))
 }
 
 def setCoolingSetpoint(BigDecimal degrees) {
-	parent.setCoolingSetpoint(degrees, getThermID())
+	parent.sendMsg(parent.setCoolingSetpoint(degrees, getThermID()))
 }
 
 def setHeatingSetpoint(BigDecimal degrees) {
-	parent.setHeatingSetpoint(degrees, getThermID())
+	parent.sendMsg(parent.setHeatingSetpoint(degrees, getThermID()))
 }
 
 def setSchedule(schedule) {
 }
 
 def setThermostatFanMode(String fanmode) {
-	parent.setThermostatFanMode(fanmode, getThermID())
+	parent.sendMsg(parent.setThermostatFanMode(fanmode, getThermID()))
 }
 
 def setThermostatHoldMode(String holdmode) {
-	parent.setThermostatHoldMode(holdmode, getThermID())
+	parent.sendMsg(parent.setThermostatHoldMode(holdmode, getThermID()))
 }
 
 def setThermostatMode(String thermostatmode) {
-	parent.setThermostatMode(thermostatmode, getThermID())
+	parent.sendMsg(parent.setThermostatMode(thermostatmode, getThermID()))
 }
 
 def refresh() {
-	parent.RequestThermostatData(getThermID())
+	parent.refreshThermostatStatus(getThermID())
 }
 
 String getThermID() {
@@ -140,7 +177,7 @@ String getThermID() {
 
 @Field final Map elkThermostatMode = ['0': Off, '1': Heat, '2': Cool, '3': Auto, '4': EmergencyHeat]
 @Field final Map elkThermostatHold = ['0': False, '1': True]
-@Field final Map elkThermostatFan = ['0': FanAuto, '1': FanOn]
+@Field final Map elkThermostatFan = ['0': Auto, '1': On]
 
 @Field static final String On = "on"
 @Field static final String Off = "off"
@@ -157,6 +194,11 @@ String getThermID() {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.7
+ * Fixed issue with all commands not working
+ * Added humidity and hold
+ * Changed logging and events to only occur when state changes
  *
  * 0.1.6
  * Added Refresh Command
@@ -182,6 +224,7 @@ String getThermID() {
  *
  * Feature Request & Known Issues
  *
+ * I - Fan Mode Circulate currently supported
  * I - Set Hold Mode not currently supported
  * I - Set Schedule not currently supported
  *
