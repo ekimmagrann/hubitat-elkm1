@@ -19,12 +19,13 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.6" }
+public static String version() { return "v0.1.7" }
 
 metadata {
 	definition(name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
+		capability "Actuator"
 		capability "Switch"
-		capability "Momentary"
+		command "push", ["duration"]
 		command "refresh"
 	}
 	preferences {
@@ -39,6 +40,7 @@ def updated() {
 
 def installed() {
 	"Installed..."
+	device.updateSetting("txtEnable", [type: "bool", value: true])
 	refresh()
 }
 
@@ -46,9 +48,11 @@ def uninstalled() {
 }
 
 def parse(String description) {
-	if (txtEnable)
-		log.info "${device.label} is ${description}"
-	sendEvent(name: "switch", value: description, isStateChange: true)
+	if (device.currentState("switch")?.value == null || device.currentState("switch").value != description) {
+		if (txtEnable)
+			log.info "${device.label} is ${description}"
+		sendEvent(name: "switch", value: description)
+	}
 }
 
 def parse(List description) {
@@ -56,31 +60,32 @@ def parse(List description) {
 	return
 }
 
-def push() {
-	String output = device.deviceNetworkId
-	output = output.substring(output.length() - 3).take(3)
-	parent.ControlOutputOn(output.toInteger(), '00001')
+def push(String duration = "1") {
+	on(duration)
 }
 
-def on() {
+def on(String duration = "0") {
 	String output = device.deviceNetworkId
 	output = output.substring(output.length() - 3).take(3)
-	parent.ControlOutputOn(output.toInteger(), '00000')
+	parent.sendMsg(parent.ControlOutputOn(output.toInteger(), duration))
 }
 
 def off() {
 	String output = device.deviceNetworkId
 	output = output.substring(output.length() - 3).take(3)
-	parent.ControlOutputOff(output.toInteger())
+	parent.sendMsg(parent.ControlOutputOff(output.toInteger()))
 }
 
 def refresh() {
-	parent.RequestOutputStatus()
+	parent.refreshOutputStatus()
 }
 
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.7
+ * Changed logging and events to only occur when state changes
  *
  * 0.1.6
  * Added Refresh Command

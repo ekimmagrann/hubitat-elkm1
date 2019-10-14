@@ -15,10 +15,11 @@
  *
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 metadata {
 	definition(name: "Virtual Water Sensor", namespace: "captncode", author: "captncode", component: true) {
+		capability "Actuator"
 		capability "WaterSensor"
 		command "dry"
 		command "wet"
@@ -52,13 +53,30 @@ def parse(List description) {
 }
 
 def dry() {
-	def descriptionText = "sensor is dry"
-	sendEvent(name: "water", value: "dry", descriptionText: descriptionText)
-	if (txtEnable) log.info "${device.label} ${descriptionText}"
+	if (device.currentState("water")?.value == null || device.currentState("water").value != "dry") {
+		String descriptionText = "sensor is dry"
+		if (txtEnable)
+			log.info "${device.label} ${descriptionText}"
+		sendEvent(name: "water", value: "dry", descriptionText: descriptionText)
+	}
 }
 
 def wet() {
-	def descriptionText = "sensor is wet"
-	sendEvent(name: "water", value: "wet", descriptionText: descriptionText, isStateChange: true)
-	if (txtEnable) log.info "${device.label} ${descriptionText}"
+	if (device.currentState("water")?.value == null || device.currentState("water").value != "wet") {
+		String descriptionText = "sensor is wet"
+		if (txtEnable)
+			log.info "${device.label} ${descriptionText}"
+		sendEvent(name: "water", value: "wet", descriptionText: descriptionText)
+	}
 }
+/***********************************************************************************************************************
+ *
+ * Release Notes
+ *
+ * 0.1.1
+ * Changed logging and events to only occur when state changes
+ *
+ * 0.1.0
+ * New Virtual Water Sensor Driver
+ *
+ ***********************************************************************************************************************/

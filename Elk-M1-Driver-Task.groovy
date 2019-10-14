@@ -19,10 +19,11 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.6" }
+public static String version() { return "v0.1.7" }
 
 metadata {
 	definition(name: "Elk M1 Driver Tasks", namespace: "belk", author: "Mike Magrann") {
+		capability "Actuator"
 		capability "Switch"
 		capability "Momentary"
 		command "refresh"
@@ -39,6 +40,7 @@ def updated() {
 
 def installed() {
 	"Installed..."
+	device.updateSetting("txtEnable", [type: "bool", value: true])
 	refresh()
 }
 
@@ -46,11 +48,11 @@ def uninstalled() {
 }
 
 def parse(String description) {
-	if (description == "on") {
-		if (txtEnable)
+	if (device.currentState("switch")?.value == null || device.currentState("switch").value != description) {
+		if (txtEnable && description == "on")
 			log.info "${device.label} is activated"
+		sendEvent(name: "switch", value: description)
 	}
-	sendEvent(name: "switch", value: description, isStateChange: true)
 }
 
 def parse(List description) {
@@ -61,7 +63,7 @@ def parse(List description) {
 def push() {
 	String task = device.deviceNetworkId
 	task = task.substring(task.length() - 3).take(3)
-	getParent().TaskActivation(task.toInteger())
+	parent.sendMsg(parent.TaskActivation(task.toInteger()))
 }
 
 def on() {
@@ -69,7 +71,9 @@ def on() {
 }
 
 def off() {
-	sendEvent(name: "switch", value: "off", isStateChange: true)
+	if (device.currentState("switch")?.value == null || device.currentState("switch").value != "off") {
+		sendEvent(name: "switch", value: "off")
+	}
 }
 
 def refresh() {
@@ -79,6 +83,9 @@ def refresh() {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.7
+ * Changed logging and events to only occur when state changes
  *
  * 0.1.6
  * Added Refresh Command

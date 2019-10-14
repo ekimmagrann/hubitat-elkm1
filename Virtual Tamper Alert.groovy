@@ -15,10 +15,11 @@
  *
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 metadata {
 	definition(name: "Virtual Tamper Alert", namespace: "captncode", author: "captncode", component: true) {
+		capability "Actuator"
 		capability "TamperAlert"
 		command "clear"
 		command "detected"
@@ -52,13 +53,30 @@ def parse(List description) {
 }
 
 def clear() {
-	def descriptionText = "tamper is clear"
-	sendEvent(name: "tamper", value: "clear", descriptionText: descriptionText)
-	if (txtEnable) log.info "${device.label} ${descriptionText}"
+	if (device.currentState("tamper")?.value == null || device.currentState("tamper").value != "clear") {
+		String descriptionText = "tamper is clear"
+		if (txtEnable)
+			log.info "${device.label} ${descriptionText}"
+		sendEvent(name: "tamper", value: "clear", descriptionText: descriptionText)
+	}
 }
 
 def detected() {
-	def descriptionText = "tamper is detected"
-	sendEvent(name: "tamper", value: "detected", descriptionText: descriptionText, isStateChange: true)
-	if (txtEnable) log.info "${device.label} ${descriptionText}"
+	if (device.currentState("tamper")?.value == null || device.currentState("tamper").value != "detected") {
+		String descriptionText = "tamper is detected"
+		if (txtEnable)
+			log.info "${device.label} ${descriptionText}"
+		sendEvent(name: "tamper", value: "detected", descriptionText: descriptionText)
+	}
 }
+/***********************************************************************************************************************
+ *
+ * Release Notes
+ *
+ * 0.1.1
+ * Changed logging and events to only occur when state changes
+ *
+ * 0.1.0
+ * New Virtual Tamper Alert Driver
+ *
+ ***********************************************************************************************************************/

@@ -15,10 +15,11 @@
  *
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 metadata {
 	definition(name: "Virtual Smoke Detector", namespace: "captncode", author: "captncode", component: true) {
+		capability "Actuator"
 		capability "SmokeDetector"
 		command "clear"
 		command "detected"
@@ -52,16 +53,33 @@ def parse(List description) {
 }
 
 def clear() {
-	def descriptionText = "smoke is clear"
-	sendEvent(name: "smoke", value: "clear", descriptionText: descriptionText)
-	if (txtEnable) log.info "${device.label} ${descriptionText}"
+	if (device.currentState("smoke")?.value == null || device.currentState("smoke").value != "clear") {
+		String descriptionText = "smoke is clear"
+		if (txtEnable)
+			log.info "${device.label} ${descriptionText}"
+		sendEvent(name: "smoke", value: "clear", descriptionText: descriptionText)
+	}
 }
 
 def tested() {
 }
 
 def detected() {
-	def descriptionText = "smoke is detected"
-	sendEvent(name: "smoke", value: "detected", descriptionText: descriptionText, isStateChange: true)
-	if (txtEnable) log.info "${device.label} ${descriptionText}"
+	if (device.currentState("smoke")?.value == null || device.currentState("smoke").value != "detected") {
+		String descriptionText = "smoke is detected"
+		if (txtEnable)
+			log.info "${device.label} ${descriptionText}"
+		sendEvent(name: "smoke", value: "detected", descriptionText: descriptionText)
+	}
 }
+/***********************************************************************************************************************
+ *
+ * Release Notes
+ *
+ * 0.1.1
+ * Changed logging and events to only occur when state changes
+ *
+ * 0.1.0
+ * New Virtual Smoke Detector Driver
+ *
+ ***********************************************************************************************************************/

@@ -15,10 +15,11 @@
  *
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 metadata {
 	definition(name: "Virtual Carbon Monoxide Detector", namespace: "captncode", author: "captncode", component: true) {
+		capability "Actuator"
 		capability "CarbonMonoxideDetector"
 		command "clear"
 		command "detected"
@@ -52,16 +53,33 @@ def parse(List description) {
 }
 
 def clear() {
-	def descriptionText = "carbonMonoxide is clear"
-	sendEvent(name: "carbonMonoxide", value: "clear", descriptionText: descriptionText)
-	if (txtEnable) log.info "${device.label} ${descriptionText}"
+	if (device.currentState("carbonMonoxide")?.value == null || device.currentState("carbonMonoxide").value != "clear") {
+		String descriptionText = "carbonMonoxide is clear"
+		if (txtEnable)
+			log.info "${device.label} ${descriptionText}"
+		sendEvent(name: "carbonMonoxide", value: "clear", descriptionText: descriptionText)
+	}
 }
 
 def tested() {
 }
 
 def detected() {
-	def descriptionText = "carbonMonoxide is detected"
-	sendEvent(name: "carbonMonoxide", value: "detected", descriptionText: descriptionText, isStateChange: true)
-	if (txtEnable) log.info "${device.label} ${descriptionText}"
+	if (device.currentState("carbonMonoxide")?.value == null || device.currentState("carbonMonoxide").value != "detected") {
+		String descriptionText = "carbonMonoxide is detected"
+		if (txtEnable)
+			log.info "${device.label} ${descriptionText}"
+		sendEvent(name: "carbonMonoxide", value: "detected", descriptionText: descriptionText)
+	}
 }
+/***********************************************************************************************************************
+ *
+ * Release Notes
+ *
+ * 0.1.1
+ * Changed logging and events to only occur when state changes
+ *
+ * 0.1.0
+ * New Virtual Carbon Monoxide Detector Driver
+ *
+ ***********************************************************************************************************************/
