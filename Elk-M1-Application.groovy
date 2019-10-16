@@ -18,7 +18,7 @@
  ***********************************************************************************************************************/
 //Adding thermostat support
 
-public static String version() { return "v0.1.10" }
+public static String version() { return "v0.1.11" }
 
 definition(
 		name: "Elk M1 Application",
@@ -56,7 +56,6 @@ def mainPage() {
 				input "elkM1Name", "text", title: "Elk M1 Name", required: true, multiple: false, defaultValue: "Elk M1", submitOnChange: false
 				input "elkM1IP", "text", title: "Elk M1 IP Address", required: true, multiple: false, defaultValue: "", submitOnChange: false
 				input "elkM1Port", "text", title: "Elk M1 Port", required: true, multiple: false, defaultValue: "2101", submitOnChange: false
-				input "elkM1Password", "text", title: "Elk M1 Password", required: true, multiple: false, defaultValue: "", submitOnChange: false
 				input "elkM1Code", "text", title: "Elk M1 Disarm Code", required: true, multiple: false, defaultValue: "", submitOnChange: false
 			}
 		} else {
@@ -296,7 +295,6 @@ def clearStateVariables() {
 	state.ElkM1DeviceName = null
 	state.ElkM1IP = null
 	state.ElkM1Port = null
-	state.ElkM1Password = null
 	state.ElkM1Code = null
 }
 
@@ -308,7 +306,6 @@ def createElkM1ParentDevice() {
 		addChildDevice("belk", "Elk M1 Driver", state.ElkM1DNI, null, [name: elkM1Name, isComponent: true, label: elkM1Name])
 		getChildDevice(state.ElkM1DNI).updateSetting("ip", [type: "text", value: elkM1IP])
 		getChildDevice(state.ElkM1DNI).updateSetting("port", [type: "text", value: elkM1Port])
-		getChildDevice(state.ElkM1DNI).updateSetting("passwd", [type: "text", value: elkM1Password])
 		getChildDevice(state.ElkM1DNI).updateSetting("code", [type: "text", value: elkM1Code])
 		castElkM1DeviceStates()
 	}
@@ -322,8 +319,6 @@ def castElkM1DeviceStates() {
 	ifDebug("Setting state.ElkM1IP ${state.ElkM1IP}")
 	state.ElkM1Port = elkM1Port
 	ifDebug("Setting state.ElkM1Port ${state.ElkM1Port}")
-	state.ElkM1Password = elkM1Password
-	ifDebug("Setting state.ElkM1Password ${state.ElkM1Password}")
 	state.ElkM1Code = elkM1Code
 	ifDebug("Setting state.ElkM1Code ${state.ElkM1Code}")
 	if (getChildDevice(state.ElkM1DNI)) {
@@ -558,6 +553,9 @@ private removeChildDevices(delete) {
 /***********************************************************************************************************************
  *
  * Release Notes
+ *
+ * Version: 0.1.11
+ * Removed unused password setting.
  *
  * Version: 0.1.10
  * Added import of Lighting devices.
