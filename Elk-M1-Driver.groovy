@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.33" }
+public static String version() { return "v0.1.34" }
 
 import groovy.transform.Field
 
@@ -35,7 +35,7 @@ metadata {
 		capability "ContactSensor"
 		command "Disarm"
 		command "ArmAway"
-		command "ArmHome"
+		command "ArmStay"
 		command "ArmStayInstant"
 		command "ArmNight"
 		command "ArmNightInstant"
@@ -49,16 +49,17 @@ metadata {
 //		command "RequestTextDescriptions"
 		command "RequestZoneDefinitions"
 		command "sendMsg"
-		attribute "ArmStatus", "string"
-		attribute "ArmState", "string"
 		attribute "AlarmState", "string"
+		attribute "ArmMode", "string"
+		attribute "ArmState", "string"
+		attribute "ArmStatus", "string"
 		attribute "LastUser", "string"
 	}
 	preferences {
-		input name: "ip", type: "text", title: "IP Address", description: "ip", required: true
-		input name: "port", type: "text", title: "Port", description: "port", required: true
-		input name: "passwd", type: "text", title: "Password", description: "password", required: true
-		input name: "code", type: "text", title: "Code", description: "code", required: true
+		input name: "ip", type: "text", title: "IP Address", required: true
+		input name: "port", type: "number", title: "Port", range: 1..65535, required: true
+		input name: "code", type: "text", title: "Code", required: true
+		input name: "timeout", type: "number", title: "Timeout in minutes", range: 0..1999
 		input name: "dbgEnable", type: "bool", title: "Enable debug logging", defaultValue: false
 		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
 	}
@@ -74,10 +75,14 @@ def updated() {
 	log.info "${device.label} Updated..."
 	if (dbgEnable)
 		log.debug "${device.label}: Configuring IP: ${ip}, Port ${port}, Code: ${code}, Password: ${passwd}"
+	unschedule()
 	initialize()
 }
 
 def initialize() {
+	if (state.alarmState != null) state.remove("alarmState")
+	if (state.armState != null) state.remove("armState")
+	if (state.armStatus != null) state.remove("armStatus")
 	telnetClose()
 	boolean success = true
 	try {
@@ -92,6 +97,7 @@ def initialize() {
 		success = false
 	}
 	if (success) {
+		heartbeat() // Start checking for telnet timeout
 		runIn(1, "refresh")
 	}
 }
@@ -145,10 +151,10 @@ hubitat.device.HubAction ArmAway() {
 	sendMsg(cmd, area)
 }
 
-hubitat.device.HubAction ArmHome() {
+hubitat.device.HubAction ArmStay() {
 	if (dbgEnable)
-		log.debug "${device.label} ArmHome"
-	def cmd = elkCommands["ArmHome"]
+		log.debug "${device.label} ArmStay"
+	def cmd = elkCommands["ArmStay"]
 	String area = "1"
 	sendMsg(cmd, area)
 }
@@ -461,7 +467,7 @@ private parse(String message) {
 			lightingDeviceChange(message);
 			break;
 		case "LD":
-			logData(message);
+			//logData(message);
 			break;
 		case "LW":
 			temperatureData(message);
@@ -479,7 +485,7 @@ private parse(String message) {
 			//if (dbgEnable) log.debug "${device.label}: The event is unknown: ";
 			break;
 		case "XK":
-			// Ethernet Test
+			heartbeat();
 			break;
 		case "VN":
 			versionNumberReport(message);
@@ -581,13 +587,11 @@ def armStatusReport(String message) {
 	String armUpState = elkArmUpStates[message.substring(12, 13)]
 	String alarmState = elkAlarmStates[message.substring(20, 21)]
 	if (dbgEnable) {
-		log.debug "${device.label} ArmStatus: ${armStatus}"
-		log.debug "${device.label} ArmUpState: ${armUpState}"
-		log.debug "${device.label} AlarmState: ${alarmState}"
+		log.debug "${device.label} ArmStatus: ${armStatus} ArmState: ${armUpState} AlarmState: ${alarmState}"
 	}
 	sendEvent(name: "ArmState", value: armUpState)
-	if (state.alarmState != alarmState) {
-		state.alarmState = alarmState
+
+	if (device.currentState("AlarmState")?.value == null || device.currentState("AlarmState").value != alarmState) {
 		sendEvent(name: "AlarmState", value: alarmState)
 		if (txtEnable)
 			log.info "${device.label} AlarmState changed to ${alarmState}"
@@ -597,6 +601,8 @@ def armStatusReport(String message) {
 			device.sendEvent(name: "contact", value: "closed")
 		}
 	}
+	if (armStatus == Disarmed)
+		setMode("Home", "disarm", "Disarmed")
 }
 
 def userCodeEntered(String message) {
@@ -696,7 +702,6 @@ def logData(String message) {
 	} else if (eventCode == '1174') {
 //		sendEvent(name:"Status", value: eventValue)
 //		disarming()
-		setMode("Home", "disarm", "Disarmed")
 	} else if ('1207' || eventCode == '1215') {
 //		sendEvent(name:"Status", value: eventValue)
 //		systemArmed()
@@ -788,6 +793,11 @@ def thermostatData(String message) {
 			log.debug "${device.label} thermostatData: ${thermNumber} - ${message.substring(6, 17)}"
 		zoneDevice.parse(message)
 	}
+}
+
+def heartbeat() {
+	if (timeout != null && timeout.toString().isInteger() && timeout >= 1)
+		runIn(timeout * 60, "telnetTimeout")
 }
 
 def versionNumberReport(String message) {
@@ -1261,14 +1271,12 @@ def removeZone(zoneInfo) {
 }
 
 def setMode(String armMode, String setArm, String armStatus) {
-	if (state.armStatus != armStatus) {
-		state.armStatus = armStatus
+	if (device.currentState("ArmStatus")?.value == null || device.currentState("ArmStatus").value != armStatus) {
 		sendEvent(name: "ArmStatus", value: armStatus)
 		if (txtEnable)
 			log.info "${device.label} ArmStatus changed to ${armStatus}"
 	}
-	if (state.armState != armMode) {
-		state.armState = armMode
+	if (device.currentState("ArmMode")?.value == null || device.currentState("ArmMode").value != armMode) {
 		def allmodes = location.getModes()
 		int idx = allmodes.findIndexOf { it.name == armMode }
 		if (idx == -1 && armMode == "Vacation") {
@@ -1292,24 +1300,12 @@ def setMode(String armMode, String setArm, String armStatus) {
 			parent.speakArmed()
 			sendEvent(name: "switch", value: "on")
 		}
-		sendLocationEvent(name: "hsmSetArm", value: setArm)
+		sendEvent(name: "ArmMode", value: armMode)
 		if (txtEnable)
 			log.info "${device.label} changed to mode ${armMode}"
+		sendLocationEvent(name: "hsmSetArm", value: setArm)
 	}
 }
-
-//def armReady(){
-//	if (state.armUpStates != "Ready To Arm"){
-//		if (dbgEnable)
-//			log.debug "${device.label}: ready to arm"
-//		state.armUpStates = "Ready To Arm"
-//		parent.lockIt()
-//		parent.speakArmed()
-//		if (location.hsmStatus == "disarmed") {
-//			sendLocationEvent(name: "hsmSetArm", value: "armHome")
-//		}
-//	}
-//}
 
 def registerZoneReport(String deviceNetworkId, String zoneNumber) {
 	if (dbgEnable)
@@ -1388,6 +1384,10 @@ HashMap sendReport(HashMap reportList, zoneDevice, String deviceNumber, boolean 
 }
 
 //Telnet
+def telnetTimeout() {
+	telnetStatus("timeout")
+}
+
 int getReTry(Boolean inc) {
 	int reTry = (state.reTryCount ?: 0).toInteger()
 	if (inc) reTry++
@@ -1396,13 +1396,12 @@ int getReTry(Boolean inc) {
 }
 
 def telnetStatus(String status) {
-	log.warn "${device.label}: telnetStatus- error: ${status}"
-	if (status != "receive error: Stream is closed") {
+	log.warn "${device.label} telnetStatus error: ${status}"
+	if (status == "receive error: Stream is closed" || status == "send error: Broken pipe (Write failed)" || status == "timeout") {
 		getReTry(true)
 		log.error "Telnet connection dropped..."
+		log.warn "${device.label} Telnet is restarting..."
 		initialize()
-	} else {
-		log.warn "${device.label}: Telnet is restarting..."
 	}
 }
 
@@ -1764,7 +1763,7 @@ def telnetStatus(String status) {
 
 		Disarm                    : "a0",
 		ArmAway                   : "a1",
-		ArmHome                   : "a2",
+		ArmStay                   : "a2",
 		ArmStayInstant            : "a3",
 		ArmNight                  : "a4",
 		ArmNightInstant           : "a5",
@@ -1926,10 +1925,16 @@ def telnetStatus(String status) {
  *
  * Release Notes (see Known Issues Below)
  *
+ * 0.1.34
+ * Added a telnet timeout feature to re-initialize device if the panel's IP Test message is not received when expected
+ * Added ArmMode attribute
+ * Rename ArmHome command to ArmStay
+ * Removed processing of any Log Data Update report due to not being reliable for real time results
+ *
  * 0.1.33
  * Added import of lighting devices for use with new drivers.  If lighting text has "dim" in it, it will be assigned the dimmer
  *   driver.  Otherwise, it will be assigned the switch driver.
- * Fixed issue with M1 Touch Pro App sync conflict that caused this driver to crash
+ * Fixed issue with M1 Touch Pro App sync conflict that caused this device to crash
  * Fixed issue with thermostats not working
  * Removed redundant output and task command buttons.  The individual devices now have them.
  * Renamed the Request xxx Status command buttons to Refresh xxx Status for accuracy
@@ -1944,12 +1949,12 @@ def telnetStatus(String status) {
  * Added info logging only of Zone Definitions
  * Simplified thermostat code
  * Simplified Output and Task logging and events
- * Removed unneeded thermostat capability from this driver since the child thermostat driver has it
+ * Removed unneeded thermostat capability from this device since the child thermostat device has it
  *
  * 0.1.30
  * Added polling of device status once connected or reconnected to the panel.
  * Added Enable debug logging and Enable descriptionText logging to the main device.  Debug is no longer set for the
- *   driver from within the application.  Info logging can now be turned on or off for the main device.
+ *   device from within the application.  Info logging can now be turned on or off for the main device.
  * Added zone, output and task reporting so child devices can register to be updated via the report command when another
  *   device status has changed.
  *   I am using this for a door control driver assigned to an output that needs to be aware of the state of the contact
@@ -1964,10 +1969,10 @@ def telnetStatus(String status) {
  * Added the device type Keypad for temperature readings.
  * Both devices are assigned the Virtual Temperature Sensor driver.  This is an experimental feature.  Since the panel
  *   does not volunteer temperature data, it must be requested either manually for all devices using the Request Temperature
- *   Data button on the main driver or by setting up a rule to periodically execute the refreshTemperatureStatus command.
+ *   Data button on the main device or by setting up a rule to periodically execute the refreshTemperatureStatus command.
  * Added "ContactSensor" as a capability for HSM monitoring.  The contact will open if a Burglar Alarm or Police Alarm is triggered.
  * Changed the method of importing devices to greatly improve performance and reduce panel communication.
- * Fixed an issue not deleting child devices when the main driver is uninstalled.
+ * Fixed an issue not deleting child devices when the main device is uninstalled.
  * Fixed an issue with the name when importing a device with the "Show On Keypad" flag set.
  *
  * 0.1.27
@@ -1978,7 +1983,7 @@ def telnetStatus(String status) {
  *
  * 0.1.26
  * Added info logging when output or task status changes or Arm Mode changes
- * Added switch capability to main Elk M1 driver
+ * Added switch capability to main Elk M1 device
  * Improved ArmStatus and AlarmState events to fire only when changed
  * Adding missing AlarmStates
  * Small tweaks to improve performance
@@ -1986,7 +1991,7 @@ def telnetStatus(String status) {
  * 0.1.25
  * Added sync of Elk M1 modes to Location Modes: Disarmed, Armed Away, Night, Stay, Vacation synced to modes Home, Away, Night,
  *    Stay (if available and Home if not), Vacation (if available and Away if not), respectively.
- * Added sync of hsmSetArm modes of disarm, armAway, armNight, ArmHome
+ * Added sync of hsmSetArm modes of disarm, armAway, armNight, ArmStay
  * Retooled zone-device creation to always create a device of type Virtual Contact unless "motion" is in the description.
  * Fixed issue that would create a lot of bogus devices when you connect to the panel with the M1 Touch Pro app
  * Added auto zone-device capability detection to support virtual devices with the following capabilities:
@@ -2093,6 +2098,7 @@ def telnetStatus(String status) {
 /***********************************************************************************************************************
  *
  * Feature Request & Known Issues
+ * I - Unable to use the secure port on the Elk M1XEP.  A non-secure port is required.
  * I - Area is hard coded to 1
  * I - Fan Circulate and set schedule not supported
  * F - Request text descriptions for zone setup, tasks and outputs (currently this must be done via the app)
