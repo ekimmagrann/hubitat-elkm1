@@ -19,14 +19,13 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.7" }
+public static String version() { return "v0.2.0" }
 
 metadata {
 	definition(name: "Elk M1 Driver Tasks", namespace: "belk", author: "Mike Magrann") {
 		capability "Actuator"
-		capability "Switch"
 		capability "Momentary"
-		command "refresh"
+		capability "PushableButton"
 	}
 	preferences {
 		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
@@ -36,6 +35,7 @@ metadata {
 def updated() {
 	log.info "Updated..."
 	log.warn "${device.label} description logging is: ${txtEnable == true}"
+	sendEvent(name: "numberOfButtons", value: 1)
 }
 
 def installed() {
@@ -47,11 +47,13 @@ def installed() {
 def uninstalled() {
 }
 
-def parse(String description) {
-	if (device.currentState("switch")?.value == null || device.currentState("switch").value != description) {
-		if (txtEnable && description == "on")
-			log.info "${device.label} is activated"
-		sendEvent(name: "switch", value: description)
+def parse(String description = null) {
+	if (description != "off") {
+		String descriptionText = "${device.label} was activated"
+		if (txtEnable)
+			log.info descriptionText
+		sendEvent(name: "pushed", value: 1, descriptionText: descriptionText)
+		runIn(3, clear)
 	}
 }
 
@@ -66,23 +68,16 @@ def push() {
 	parent.sendMsg(parent.TaskActivation(task.toInteger()))
 }
 
-def on() {
-	push()
-}
-
-def off() {
-	if (device.currentState("switch")?.value == null || device.currentState("switch").value != "off") {
-		sendEvent(name: "switch", value: "off")
-	}
-}
-
-def refresh() {
-	off()
+def clear() {
+	sendEvent(name: "pushed", value: 0, isStateChange: false)
 }
 
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.2.0
+ * Change to a PushableButton
  *
  * 0.1.7
  * Changed logging and events to only occur when state changes
