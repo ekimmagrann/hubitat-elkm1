@@ -19,13 +19,13 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.7" }
+public static String version() { return "v0.1.8" }
 
 metadata {
 	definition(name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
 		capability "Actuator"
 		capability "Switch"
-		command "push", ["duration"]
+		command "push", [[name:"duration", type: "NUMBER"]]
 		command "refresh"
 	}
 	preferences {
@@ -49,9 +49,10 @@ def uninstalled() {
 
 def parse(String description) {
 	if (device.currentState("switch")?.value == null || device.currentState("switch").value != description) {
+		String descriptionText = "${device.label} is ${description}"
 		if (txtEnable)
-			log.info "${device.label} is ${description}"
-		sendEvent(name: "switch", value: description)
+			log.info descriptionText
+		sendEvent(name: "switch", value: description, descriptionText: descriptionText)
 	}
 }
 
@@ -83,6 +84,9 @@ def refresh() {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.8
+ * Added descriptionText to switch events
  *
  * 0.1.7
  * Changed logging and events to only occur when state changes
