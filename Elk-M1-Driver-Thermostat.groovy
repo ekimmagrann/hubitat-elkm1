@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.7" }
+public static String version() { return "v0.1.8" }
 
 import groovy.transform.Field
 
@@ -49,6 +49,7 @@ def uninstalled() {
 }
 
 def parse(String description) {
+	String uom = description.substring(0, 2)
 	String mode = elkThermostatMode[description.substring(6, 7)]
 	String hold = elkThermostatHold[description.substring(7, 8)]
 	String fan = elkThermostatFan[description.substring(8, 9)]
@@ -56,48 +57,58 @@ def parse(String description) {
 	String hSet = description.substring(11, 13)
 	String cSet = description.substring(13, 15)
 	String cHumid = description.substring(15, 17)
+	String descriptionText
 	if (device.currentState("coolingSetpoint")?.value == null || device.currentState("coolingSetpoint").value != cSet) {
-		sendEvent(name: "coolingSetpoint", value: cSet)
+		descriptionText = "${device.label} coolingSetpoint is ${cSet}${uom}"
 		if (txtEnable)
-			log.info "${device.label} coolingSetpoint is ${cSet}°"
+			log.info descriptionText
+		sendEvent(name: "coolingSetpoint", value: cSet, unit: uom, descriptionText: descriptionText)
 	}
 	if (device.currentState("heatingSetpoint")?.value == null || device.currentState("heatingSetpoint").value != hSet) {
-		sendEvent(name: "heatingSetpoint", value: hSet)
+		descriptionText = "${device.label} heatingSetpoint is ${hSet}${uom}"
 		if (txtEnable)
-			log.info "${device.label} heatingSetpoint is ${hSet}°"
+			log.info descriptionText
+		sendEvent(name: "heatingSetpoint", value: hSet, unit: uom, descriptionText: descriptionText)
 	}
-	if (device.currentState("humidity")?.value == null || device.currentState("humidity").value != cHumid) {
-		sendEvent(name: "humidity", value: cHumid)
+	if (cHumid != "00" && (device.currentState("humidity")?.value == null || device.currentState("humidity").value != cHumid)) {
+		descriptionText = "${device.label} humidity is ${cHumid}%"
 		if (txtEnable)
-			log.info "${device.label} humidity is ${cHumid}%"
+			log.info descriptionText
+		sendEvent(name: "humidity", value: cHumid, unit: "%", descriptionText: descriptionText)
 	}
 	if (device.currentState("hold")?.value == null || device.currentState("hold").value != hold) {
-		sendEvent(name: "hold", value: hold)
+		descriptionText = "${device.label} hold is ${hold}"
 		if (txtEnable)
-			log.info "${device.label} hold is ${hold}"
+			log.info descriptionText
+		sendEvent(name: "hold", value: hold, descriptionText: descriptionText)
 	}
 	if (device.currentState("temperature")?.value == null || device.currentState("temperature").value != cTemp) {
-		sendEvent(name: "temperature", value: cTemp)
+		descriptionText = "${device.label} temperature is ${cTemp}${uom}"
 		if (txtEnable)
-			log.info "${device.label} temperature is ${cTemp}°"
+			log.info descriptionText
+		sendEvent(name: "temperature", value: cTemp, unit: uom, descriptionText: descriptionText)
 	}
 	if (device.currentState("thermostatFanMode")?.value == null || device.currentState("thermostatFanMode").value != fan) {
-		sendEvent(name: "thermostatFanMode", value: fan)
+		descriptionText = "${device.label} thermostatFanMode is ${fan}"
 		if (txtEnable)
-			log.info "${device.label} thermostatFanMode is ${fan}"
+			log.info descriptionText
+		sendEvent(name: "thermostatFanMode", value: fan, descriptionText: descriptionText)
 	}
 	if (device.currentState("thermostatMode")?.value == null || device.currentState("thermostatMode").value != mode) {
-		sendEvent(name: "thermostatMode", value: mode)
+		descriptionText = "${device.label} thermostatMode is set to ${mode}"
 		if (txtEnable)
-			log.info "${device.label} thermostatMode is set to ${mode}"
+			log.info descriptionText
+		sendEvent(name: "thermostatMode", value: mode, descriptionText: descriptionText)
 	}
 	if (mode == Heat || mode == EmergencyHeat) {
 		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != hSet) {
-			sendEvent(name: "thermostatSetpoint", value: hSet)
+			descriptionText = "${device.label} thermostatSetpoint is ${hSet}${uom}"
+			sendEvent(name: "thermostatSetpoint", value: hSet, unit: uom, descriptionText: descriptionText)
 		}
 	} else if (mode == Cool) {
 		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != cSet) {
-			sendEvent(name: "thermostatSetpoint", value: cSet)
+			descriptionText = "${device.label} thermostatSetpoint is ${cSet}${uom}"
+			sendEvent(name: "thermostatSetpoint", value: cSet, unit: uom, descriptionText: descriptionText)
 		}
 	} else {
 		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != " ") {
@@ -195,6 +206,9 @@ String getThermID() {
  *
  * Release Notes (see Known Issues Below)
  *
+ * 0.1.8
+ * Added descriptionText to thermostat events
+ *
  * 0.1.7
  * Fixed issue with all commands not working
  * Added humidity and hold
@@ -214,8 +228,10 @@ String getThermID() {
  * 0.1.3
  * No longer requires a 6 digit code - Add leading zeroes to 4 digit codes
  * Code clean up
+ *
  * 0.1.2
  * Code clean up
+ *
  * 0.1.1
  * New child driver to support thermostats
  *
