@@ -11,12 +11,12 @@
  *  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
  *  for more details.
  *
- *  Name: Elk M1 Driver Lighing Dimmer
+ *  Name: Elk M1 Driver Lighting Dimmer
  *
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 metadata {
 	definition(name: "Elk M1 Driver Lighting Dimmer", namespace: "captncode", author: "captncode") {
@@ -54,14 +54,16 @@ def parse(String description) {
 	int level = description.toInteger()
 	String switchState = level == 0 ? "off" : "on"
 	if (device.currentState("switch")?.value == null || device.currentState("switch").value != switchState) {
-		sendEvent(name: "switch", value: switchState)
+		String descriptionText = "${device.label} is ${switchState}"
 		if (txtEnable)
-			log.info "${device.label} is ${switchState}"
+			log.info descriptionText
+		sendEvent(name: "switch", value: switchState, descriptionText: descriptionText)
 	}
 	if (level > 1 && (device.currentState("level")?.value == null || device.currentState("level").value.toInteger() != level)) {
-		sendEvent(name: "level", value: level)
+		String descriptionText = "${device.label} was set to ${level}%"
 		if (txtEnable)
-			log.info "${device.label} was set to ${level}%"
+			log.info descriptionText
+		sendEvent(name: "level", value: level, descriptionText: descriptionText)
 	}
 }
 
@@ -105,6 +107,9 @@ def refresh() {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.1
+ * Added descriptionText to lighting events
  *
  * 0.1.0
  * New child driver to Elk M1 Lighting Dimmer
