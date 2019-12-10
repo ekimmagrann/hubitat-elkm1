@@ -18,7 +18,7 @@
  ***********************************************************************************************************************/
 //Adding thermostat support
 
-public static String version() { return "v0.1.11" }
+public static String version() { return "v0.2.00" }
 
 definition(
 		name: "Elk M1 Application",
@@ -37,6 +37,7 @@ preferences {
 	page(name: "zoneMapsPage", nextPage: "mainPage")
 	page(name: "notificationPage", nextPage: "mainPage")
 	page(name: "lockPage", nextPage: "mainPage")
+	page(name: "hsmPage", nextPage: "mainPage")
 	page(name: "defineZoneMap", nextPage: "zoneMapsPage")
 	page(name: "defineLightMap", nextPage: "zoneMapsPage")
 	page(name: "defineZoneMapImport", nextPage: "importZones")
@@ -47,51 +48,49 @@ preferences {
 
 //App Pages/Views
 def mainPage() {
+	app.removeSetting("elkM1Password")
+	state.remove("ElkM1DeviceName")
+	state.remove("ElkM1IP")
+	state.remove("ElkM1Port")
+	state.remove("ElkM1Code")
+	state.remove("ElkM1Password")
+	state.remove("allZones")
+	state.remove("ElkM1Installed")
+	state.remove("isDebug")
+	state.creatingZone = false
+	state.editedZoneDNI = null
 	ifDebug("Showing mainPage")
-	state.isDebug = isDebug
 	return dynamicPage(name: "mainPage", title: "", install: false, uninstall: true) {
-		if (!state.elkM1IntegrationInstalled && getChildDevices().size() == 0) {
+		if (getChildDevices().size() == 0) {
 			section("Define your Elk M1 device") {
 				clearStateVariables()
 				input "elkM1Name", "text", title: "Elk M1 Name", required: true, multiple: false, defaultValue: "Elk M1", submitOnChange: false
 				input "elkM1IP", "text", title: "Elk M1 IP Address", required: true, multiple: false, defaultValue: "", submitOnChange: false
 				input "elkM1Port", "text", title: "Elk M1 Port", required: true, multiple: false, defaultValue: "2101", submitOnChange: false
+				input "elkM1Keypad", "text", title: "Elk M1 Keypad", required: true, multiple: false, defaultValue: "1", submitOnChange: false
 				input "elkM1Code", "text", title: "Elk M1 Disarm Code", required: true, multiple: false, defaultValue: "", submitOnChange: false
 			}
 		} else {
-			//getChildDevice(state.ElkM1DNI).updateSetting("dbgEnable",[type:"bool", value:isDebug])
 			section("<h1>Device Mapping</h1>") {
 				href(name: "zoneMapsPage", title: "Devices",
-						description: "Create Virtual Devices and Map them to Existing Zones, Keypads, Outputs, Tasks, Thermostats and/or Lighting Devices in your Elk M1 setup",
+						description: "Create Virtual Devices and Map them to Existing Zone, Output, Task, Lighting, Thermostat, Keypad and/or Speech Devices in your Elk M1 setup",
 						page: "zoneMapsPage")
 			}
 
-//			section("<h1>Outputs</h1>") {
-//				href (name: "zoneMapsPage", title: "Outputs",
-//				description: "Create Virtual Switches and Map them to Existing Outputs in your Elk M1 setup",
-//				page: "outputMapsPage")
-//				href (name: "zoneMapsPage", title: "Tasks",
-//				description: "Create Virtual Switches and Map them to Existing Tasks in your Elk M1 setup",
-//				page: "outputMapsPage")
-//			}
+			section("<h1>Notifications</h1>") {
+				href(name: "notificationPage", title: "Notifications",
+						description: "Enable Push and TTS Messages",
+						page: "notificationPage")
+			}
 
-//			section("<h1>Notifications</h1>") {
-//				href (name: "notificationPage", title: "Notifications",
-//				description: "Enable Push and TTS Messages",
-//				page: "notificationPage")
-//			}
-
-			section("<h1>Locks</h1>") {
+			section("<h1>Integration</h1>") {
 				href(name: "lockPage", title: "Locks",
 						description: "Integrate Locks",
 						page: "lockPage")
+				href(name: "hsmPage", title: "HSM",
+						description: "Integrate Hubitat Safety Monitor",
+						page: "hsmPage")
 			}
-
-//			 state.enableHSM = enableHSM
-//				section("<h1>Safety Monitor</h1>") {
-//					paragraph "Enabling Hubitat Safety Monitor Integration will tie your Envisalink state to the state of HSM.  Your Envisalink will receive the Arm Away, Arm Home and Disarm commands based on the HSM state. "
-//						input "enableHSM", "bool", title: "Enable HSM Integration", required: false, multiple: false, defaultValue: false, submitOnChange: true
-//				}
 
 		}
 //		section("<br/><br/>") {
@@ -111,8 +110,8 @@ def aboutPage() {
 
 	dynamicPage(name: "aboutPage", title: none) {
 		section("<h1>Introducing Elk M1 Integration</h1>") {
-			paragraph "Elk M1 module allows you to upgrade your existing security system with IP control ... " +
-					"EElk M1 Integration connects to your M1XEP/C1M1 module via Telnet, using Hubitat."
+			paragraph "Elk M1 module allows you to upgrade your existing security system with IP control ..." +
+					" Elk M1 Integration connects to your M1XEP/C1M1 module via Telnet, using Hubitat."
 			paragraph "Elk M1 Integration automates installation and configuration of the Elk M1 Driver" +
 					" as well as Virtual Contacts representing the dry contact zones and Virtual Motion Detection configured in your Elk M1 Alarm system."
 			paragraph "You must have the Hubitat Elk M1 driver already installed before making use of Elk M1 application "
@@ -134,20 +133,37 @@ def lockPage() {
 	}
 }
 
+def hsmPage() {
+	ifDebug("Showing hsmPage")
+	dynamicPage(name: "hsmPage", title: none) {
+		section("<h1>Hubitat Safety Monitor</h1>") {
+			paragraph "Hubitat Safety Monitor Integration will tie your Elk M1 Arm Status to the status of HSM.  Enable both switches for full integration."
+			paragraph "HSM Status will be set to Arm Away, Arm Home, Arm Night or Disarm when the Elk M1 Arm Status changes."
+			input "enableElktoHSM", "bool", title: "Enable Elk M1 to HSM Integration", required: false, multiple: false, defaultValue: false, submitOnChange: true
+			paragraph "Your Elk M1 will receive the Arm Away, Arm Stay, Arm Night or Disarm commands when the HSM Status changes."
+			input "enableHSMtoElk", "bool", title: "Enable HSM to Elk M1 Integration", required: false, multiple: false, defaultValue: false, submitOnChange: true
+		}
+	}
+}
+
 def notificationPage() {
 	dynamicPage(name: "notificationPage", title: none) {
 		section("<h1>Notifications</h1>") {
 			paragraph "Enable TTS and Notification integration will announcing arming and disarming over your supported audio and/or push enabled device"
 			paragraph "<h3><b>Notification Text</b></h2>"
 
-			input "armingHomeBool", "bool", title: "Enable Arming Home Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
-			if (armingHomeBool) {
-				input "armingHomeText", "text", title: "Notification for Arming Home", required: false, multiple: false, defaultValue: "Arming Home", submitOnChange: false, visible: armingHomeBool
+			input "armingStayBool", "bool", title: "Enable Arming Stay Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
+			if (armingStayBool) {
+				input "armingStayText", "text", title: "Notification for Arming Stay", required: false, multiple: false, defaultValue: "Arming Stay", submitOnChange: false, visible: armingStayBool
 			}
 
 			input "armingAwayBool", "bool", title: "Enable Arming Away Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
 			if (armingAwayBool) {
 				input "armingAwayText", "text", title: "Notification for Arming Away", required: false, multiple: false, defaultValue: "Arming Away", submitOnChange: false
+			}
+			input "armingVacationBool", "bool", title: "Enable Arming Vacation Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
+			if (armingVacationBool) {
+				input "armingVacationText", "text", title: "Notification for Arming Vacation", required: false, multiple: false, defaultValue: "Arming Vacation", submitOnChange: false
 			}
 			input "armingNightBool", "bool", title: "Enable Arming Night Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
 			if (armingNightBool) {
@@ -157,10 +173,6 @@ def notificationPage() {
 			if (armedBool) {
 				input "armedText", "text", title: "Notification for Armed", required: false, multiple: false, defaultValue: "Armed", submitOnChange: false
 			}
-			input "disarmingBool", "bool", title: "Enable Disarming Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
-			if (disarmingBool) {
-				input "disarmingText", "text", title: "Notification for Disarming", required: false, multiple: false, defaultValue: "Disarming", submitOnChange: false
-			}
 			input "disarmedBool", "bool", title: "Enable Disarmed Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
 			if (disarmedBool) {
 				input "disarmedText", "text", title: "Notification for Disarmed", required: false, multiple: false, defaultValue: "Disarmed", submitOnChange: false
@@ -168,10 +180,6 @@ def notificationPage() {
 			input "entryDelayAlarmBool", "bool", title: "Enable Entry Delay Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
 			if (entryDelayAlarmBool) {
 				input "entryDelayAlarmText", "text", title: "Notification for Entry Delay", required: false, multiple: false, defaultValue: "Entry Delay in Progress, Alarm eminent", submitOnChange: false
-			}
-			input "exitDelayAlarmBool", "bool", title: "Enable Exit Delay Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
-			if (exitDelayAlarmBool) {
-				input "exitDelayAlarmText", "text", title: "Notification for Exit Delay", required: false, multiple: false, defaultValue: "", submitOnChange: false
 			}
 			input "alarmBool", "bool", title: "Enable Alarm Notification", required: false, multiple: false, defaultValue: false, submitOnChange: true
 			if (alarmBool) {
@@ -186,7 +194,7 @@ def notificationPage() {
 
 def zoneMapsPage() {
 	ifDebug("Showing zoneMapsPage")
-	if (getChildDevices().size() == 0 && !state.elkM1IntegrationInstalled) {
+	if (getChildDevices().size() == 0) {
 		createElkM1ParentDevice()
 	}
 
@@ -197,7 +205,7 @@ def zoneMapsPage() {
 	dynamicPage(name: "zoneMapsPage", title: "", install: true, uninstall: false) {
 
 		section("<h1>Device Maps</h1>") {
-			paragraph "The partition of your Elk M1 Installation may consist of Zones, Keypads, Outputs, Tasks, Thermostats and Lighting Devices.  You can choose to map the devices manually or use the import method. "
+			paragraph "The partition of your Elk M1 Installation may consist of Zone, Output, Task, Lighting, Thermostat, Keypad and Speech Devices.  You can choose to map the devices manually or use the import method. "
 			paragraph "You'll want to determine the device number as it is defined in your Elk M1 setup. " +
 					" Define a new device in Elk M1 application and the application will then create either a Virtual sensor component device or an Elk Child device, which will report the state of the Elk M1 device to which it is mapped. " +
 					" The devices can be used in Rule Machine or any other application that is capable of leveraging the devices capability.  Elk M1 is capable of 208 zones, your zone map should correspond to the numeric representation of that zone."
@@ -236,9 +244,10 @@ def defineZoneMap() {
 		section("<h1>Create a Device Map</h1>") {
 			paragraph "Create a Map for a device in Elk M1"
 			input "zoneName", "text", title: "Device Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
-			input "zoneNumber", "number", title: "Which Device 1-208", required: true, multiple: false, defaultValue: 1, range: "1..208", submitOnChange: false
-			input "zoneType", "enum", title: "Zone, Output, Task, Thermostat or Keypad Device?", required: true, multiple: false,
-					options: [['00': "Zone"], ['04': "Output"], ['05': "Task"], ['11': "Thermostat"], ['03': "Keypad"]]
+			input "zoneNumber", "number", title: "Which Device 1 - 208", required: true, multiple: false, defaultValue: 1, range: "1..208", submitOnChange: false
+			input "zoneType", "enum", title: "Zone, Output, Task, Thermostat, Keypad or Speech Device?", required: true, multiple: false,
+					options: [['00': "Zone (1 - 208)"], ['04': "Output (1 - 208)"], ['05': "Task (1 - 32)"], ['11': "Thermostat (1 - 16)"],
+							  ['03': "Keypad (1 - 16)"], ['SP': "Speech (1)"]]
 		}
 	}
 }
@@ -252,8 +261,8 @@ def defineLightMap() {
 			input "zoneName", "text", title: "Device Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
 			input "zoneType", "enum", title: "Which Lighting Group?", required: true, multiple: false,
 					options: [['A': "A"], ['B': "B"], ['C': "C"], ['D': "D"], ['E': "E"], ['F': "F"], ['G': "G"], ['H': "H"],
-					          ['I': "I"], ['J': "J"], ['K': "K"], ['L': "L"], ['M': "M"], ['N': "N"], ['O': "O"], ['P': "P"]]
-			input "zoneNumber", "number", title: "Which Device 1-16", required: true, multiple: false, defaultValue: 1,
+							  ['I': "I"], ['J': "J"], ['K': "K"], ['L': "L"], ['M': "M"], ['N': "N"], ['O': "O"], ['P': "P"]]
+			input "zoneNumber", "number", title: "Which Device 1 - 16", required: true, multiple: false, defaultValue: 1,
 					range: "1..16", submitOnChange: false
 		}
 	}
@@ -292,10 +301,6 @@ def editZoneMapPage(message) {
 //End New Code Temp
 def clearStateVariables() {
 	ifDebug("Clearing State Variables just in case.")
-	state.ElkM1DeviceName = null
-	state.ElkM1IP = null
-	state.ElkM1Port = null
-	state.ElkM1Code = null
 }
 
 def createElkM1ParentDevice() {
@@ -306,25 +311,13 @@ def createElkM1ParentDevice() {
 		addChildDevice("belk", "Elk M1 Driver", state.ElkM1DNI, null, [name: elkM1Name, isComponent: true, label: elkM1Name])
 		getChildDevice(state.ElkM1DNI).updateSetting("ip", [type: "text", value: elkM1IP])
 		getChildDevice(state.ElkM1DNI).updateSetting("port", [type: "text", value: elkM1Port])
+		getChildDevice(state.ElkM1DNI).updateSetting("keypad", [type: "text", value: elkM1Keypad])
 		getChildDevice(state.ElkM1DNI).updateSetting("code", [type: "text", value: elkM1Code])
-		castElkM1DeviceStates()
-	}
-}
-
-def castElkM1DeviceStates() {
-	ifDebug("Casting to State Variables")
-	state.ElkM1DeviceName = elkM1Name
-	ifDebug("Setting state.ElkM1DeviceName ${state.ElkM1DeviceName}")
-	state.ElkM1IP = elkM1IP
-	ifDebug("Setting state.ElkM1IP ${state.ElkM1IP}")
-	state.ElkM1Port = elkM1Port
-	ifDebug("Setting state.ElkM1Port ${state.ElkM1Port}")
-	state.ElkM1Code = elkM1Code
-	ifDebug("Setting state.ElkM1Code ${state.ElkM1Code}")
-	if (getChildDevice(state.ElkM1DNI)) {
-		ifDebug("Found a Child Elk M1 ${getChildDevice(state.ElkM1DNI).label}")
-	} else {
-		ifDebug("Did not find a Parent Elk M1")
+		if (getChildDevice(state.ElkM1DNI)) {
+			ifDebug("Found a Child Elk M1 ${getChildDevice(state.ElkM1DNI).label}")
+		} else {
+			ifDebug("Did not find a Parent Elk M1")
+		}
 	}
 }
 
@@ -357,23 +350,20 @@ def editZone() {
 	ifDebug("Attempting rename of zone to ${newZoneName}")
 	childZone.updateSetting("label", [type: "text", value: newZoneName])
 	newZoneName = null;
-	state.editingZone = false
 	state.editedZoneDNI = null;
 }
 
 private ifDebug(msg) {
-	if (msg && state.isDebug) log.debug 'Elk M1 Module: ' + msg
+	if (msg && isDebug) log.debug 'Elk M1 Module: ' + msg
 }
 
 //General App Events
 def installed() {
-	state.ElkM1Installed = true
 	initialize()
 }
 
 def updated() {
 	log.info "updated"
-	unsubscribe()
 	initialize()
 }
 
@@ -388,54 +378,65 @@ def uninstalled() {
 	removeChildDevices(getChildDevices())
 }
 
+def setHSMArm(String hsmSetArm, String description) {
+	if (hsmSetArm == "disarm") {
+		unlockIt()
+		speakDisarmed()
+	} else {
+		lockIt()
+		speakArmed()
+	}
+
+	String hsmStatus = location.hsmStatus
+	if (isDebug && enableElktoHSM)
+		log.debug "HSM arm changing from ${hsmStatus} to ${hsmSetArm}"
+	if (enableElktoHSM && ((hsmSetArm == "armAway" && hsmStatus != "armedAway" && hsmStatus != "armingAway") ||
+			(hsmSetArm == "armHome" && hsmStatus != "armedHome" && hsmStatus != "armingHome") ||
+			(hsmSetArm == "armNight" && hsmStatus != "armedNight" && hsmStatus != "armingNight") ||
+			(hsmSetArm == "disarm" && hsmStatus != "disarmed" && hsmStatus != "allDisarmed")))
+		sendLocationEvent(name: "hsmSetArm", value: hsmSetArm, descriptionText: description)
+}
+
 def statusHandler(evt) {
-	log.info "HSM Alert: $evt.value"
 	def lock
-	if (!lock) {
+	if (enableHSMtoElk && !lock && evt?.value && evt.value != state.hsmStatus) {
 		lock = true
-		if (getChildDevice(state.ElkM1DNI).currentValue("Status") != "Exit Delay in Progress"
-				&& getChildDevice(state.ElkM1DNI).currentValue("Status") != "Entry Delay in Progress"
-				&& evt.value != "disarmed") {
-			if (evt.value && state.enableHSM) {
-				ifDebug("HSM is enabled")
-				switch (evt.value) {
-					case "armedAway":
-						ifDebug("Sending Arm Away")
-						if (getChildDevice(state.ElkM1DNI).currentValue("Status") != "Armed") {
-							speakArmingAway()
-							getChildDevice(state.ElkM1DNI).ArmAway()
-						}
-						break
-					case "armedHome":
-						ifDebug("Sending Arm Home")
-						if (getChildDevice(state.ElkM1DNI).currentValue("Status") != "Armed") {
-							speakArmingHome()
-							getChildDevice(state.ElkM1DNI).ArmHome()
-						}
-						break
-					case "armedNight":
-						ifDebug("Sending Arm Home")
-						if (getChildDevice(state.ElkM1DNI).currentValue("Status") != "Armed") {
-							speakArmingNight()
-							getChildDevice(state.EnvElkM1DNI).ArmHome()
-						}
-						break
+		log.info "HSM Alert: $evt.value"
+		ifDebug("HSM is enabled")
+		switch (evt.value) {
+			case "armedAway":
+			case "armingAway":
+				ifDebug("Sending Arm Away")
+				if (getChildDevice(state.ElkM1DNI).currentValue("armState") == "Ready to Arm") {
+					getChildDevice(state.ElkM1DNI).armAway()
 				}
-			}
-		} else {
-			if (evt.value == "disarmed") {
-				if (state.enableHSM) {
-					ifDebug("HSM is enabled")
-					ifDebug("Sending Disarm")
-					if (getChildDevice(state.ElkM1DNI).currentValue("Status") != "Ready") {
-						speakDisarming()
-						getChildDevice(state.ElkM1DNI).Disarm()
-					}
+				break
+			case "armedHome":
+			case "armingHome":
+				ifDebug("Sending Arm Home")
+				if (getChildDevice(state.ElkM1DNI).currentValue("armState") == "Ready to Arm") {
+					getChildDevice(state.ElkM1DNI).armStay()
 				}
-			}
+				break
+			case "armedNight":
+			case "armingNight":
+				ifDebug("Sending Arm Night")
+				if (getChildDevice(state.ElkM1DNI).currentValue("armState") == "Ready to Arm") {
+					getChildDevice(state.ElkM1DNI).armNight()
+				}
+				break
+			case "disarmed":
+			case "allDisarmed":
+				ifDebug("Sending Disarm")
+				if (getChildDevice(state.ElkM1DNI).currentValue("armStatus") != "Disarmed") {
+					getChildDevice(state.ElkM1DNI).disarm()
+				}
+				break
 		}
 		lock = false;
 	}
+	if (evt?.value)
+		state.hsmStatus = evt.value
 }
 
 def speakArmed() {
@@ -454,10 +455,19 @@ def speakArmingAway() {
 	}
 }
 
-def speakArmingHome() {
-	if (!armingHomeBool) return
-	if (armingHomeText != "") {
-		speakIt(armingHomeText)
+def speakArmingVacation() {
+	if (!armingVacationBool) return
+	if (armingVacationText) {
+		speakIt(armingVacationText)
+	} else {
+		speakIt("Arming Vacation")
+	}
+}
+
+def speakArmingStay() {
+	if (!armingStayBool) return
+	if (armingStayText != "") {
+		speakIt(armingStayText)
 	}
 }
 
@@ -465,15 +475,6 @@ def speakArmingNight() {
 	if (!armingNightBool) return
 	if (armingNightText != "") {
 		speakIt(armingNightText)
-	}
-}
-
-def speakDisarming() {
-	if (!disarmingBool) return
-	if (disarmedText) {
-		speakIt(disarmingText)
-	} else {
-		speakIt("Disarming")
 	}
 }
 
@@ -490,14 +491,6 @@ def speakEntryDelay() {
 		speakIt(entryDelayAlarmText)
 	}
 }
-
-def speakExitDelay() {
-	if (!exitDelayAlarmBool) return
-	if (exitDelayAlarmText != "") {
-		speakIt(exitDelayAlarmText)
-	}
-}
-
 
 def speakAlarm() {
 	if (!alarmBool) return
@@ -553,6 +546,9 @@ private removeChildDevices(delete) {
 /***********************************************************************************************************************
  *
  * Release Notes
+ *
+ * Version: 0.2.0
+ * Added import of Speech device.  Also finished TTS, Notification and HSM Integration code.
  *
  * Version: 0.1.11
  * Removed unused password setting.
