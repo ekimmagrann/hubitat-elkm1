@@ -17,7 +17,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.2" }
+public static String version() { return "v0.1.3" }
 
 metadata {
 	definition(name: "Elk M1 Driver Output-DoorControl", namespace: "captncode", author: "captncode") {
@@ -59,7 +59,7 @@ def uninstalled() {
 
 def parse(String description) {
 	if (txtEnable && description == "on")
-		log.info "${device.label} is pushed"
+		log.info "${device.label} was pushed"
 }
 
 def parse(List description) {
@@ -73,9 +73,9 @@ def report(String deviceDNID, boolean violated) {
 	} else {
 		state.open = false;
 		if (device.currentState("door")?.value == null || device.currentState("door").value != "closed") {
-			String descriptionText = "door is closed"
+			String descriptionText = "${device.label} was closed"
 			if (txtEnable)
-				log.info "${device.label} ${descriptionText}"
+				log.info descriptionText
 			sendEvent(name: "door", value: "closed", descriptionText: descriptionText)
 		}
 	}
@@ -84,9 +84,9 @@ def report(String deviceDNID, boolean violated) {
 def setOpen() {
 	state.open = true;
 	if (device.currentState("door")?.value == null || device.currentState("door").value != "open") {
-		String descriptionText = "door is open"
+		String descriptionText = "${device.label} was open"
 		if (txtEnable)
-			log.info "${device.label} ${descriptionText}"
+			log.info descriptionText
 		sendEvent(name: "door", value: "open", descriptionText: descriptionText)
 	}
 }
@@ -97,16 +97,16 @@ def push() {
 	parent.ControlOutputOn(output.toInteger(), '00001')
 	if (state.open != null && state.open) {
 		if (device.currentState("door")?.value == null || device.currentState("door").value != "closing") {
-			String descriptionText = "door is closing"
+			String descriptionText = "${device.label} is closing"
 			if (txtEnable)
-				log.info "${device.label} ${descriptionText}"
+				log.info descriptionText
 			sendEvent(name: "door", value: "closing", descriptionText: descriptionText)
 		}
 	} else if (state.open == null || !state.open) {
 		if (device.currentState("door")?.value == null || device.currentState("door").value != "opening") {
-			String descriptionText = "door is opening"
+			String descriptionText = "${device.label} is opening"
 			if (txtEnable)
-				log.info "${device.label} ${descriptionText}"
+				log.info descriptionText
 			sendEvent(name: "door", value: "opening", descriptionText: descriptionText)
 		}
 	}
@@ -131,6 +131,9 @@ def refresh() {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.3
+ * Minor cleanup of descriptionText on events
  *
  * 0.1.2
  * Changed logging and events to only occur when state changes
