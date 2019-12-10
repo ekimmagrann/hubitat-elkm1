@@ -11,12 +11,12 @@
  *  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
  *  for more details.
  *
- *  Name: Elk M1 Driver Lighing Switch
+ *  Name: Elk M1 Driver Lighting Switch
  *
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 metadata {
 	definition(name: "Elk M1 Driver Lighting Switch", namespace: "captncode", author: "captncode") {
@@ -52,9 +52,10 @@ String getUnitCode() {
 def parse(String description) {
 	String switchState = description.toInteger() == 0 ? "off" : "on"
 	if (device.currentState("switch")?.value == null || device.currentState("switch").value != switchState) {
-		sendEvent(name: "switch", value: switchState)
+		String descriptionText = "${device.label} is ${switchState}"
 		if (txtEnable)
-			log.info "${device.label} is ${switchState}"
+			log.info descriptionText
+		sendEvent(name: "switch", value: switchState, descriptionText: descriptionText)
 	}
 }
 
@@ -82,6 +83,9 @@ def refresh() {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.1
+ * Added descriptionText to lighting events
  *
  * 0.1.0
  * New child driver to Elk M1 Lighting Switch
