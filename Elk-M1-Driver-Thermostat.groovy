@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.8" }
+public static String version() { return "v0.1.9" }
 
 import groovy.transform.Field
 
@@ -32,7 +32,9 @@ metadata {
 		capability "Thermostat"
 		capability "RelativeHumidityMeasurement"
 		capability "Refresh"
-		attribute "hold", "Boolean"
+		command "setThermostatHoldMode", [[name: "hold*", type: "ENUM", constraints: ["off", "on"]]]
+		command "setThermostatTemperature", [[name: "temperature*", description: "1 - 99", type: "NUMBER"]]
+		attribute "hold", "string"
 	}
 	preferences {
 		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
@@ -42,10 +44,18 @@ metadata {
 def installed() {
 	"Installed..."
 	device.updateSetting("txtEnable", [type: "bool", value: true])
+	updated()
 	refresh()
 }
 
 def uninstalled() {
+}
+
+def updated() {
+	log.info "Updated..."
+	log.warn "${device.label} description logging is: ${txtEnable == true}"
+	sendEvent(name: "supportedThermostatFanModes", value: elkThermostatFan.values(), descriptionText: "${device.label} supported Fan Modes")
+	sendEvent(name: "supportedThermostatModes", value: elkThermostatMode.values(), descriptionText: "${device.label} supported Modes")
 }
 
 def parse(String description) {
@@ -177,8 +187,12 @@ def setThermostatMode(String thermostatmode) {
 	parent.sendMsg(parent.setThermostatMode(thermostatmode, getThermID()))
 }
 
+def setThermostatTemperature(BigDecimal degrees) {
+	parent.sendMsg(parent.setThermostatTemperature(degrees, getThermID()))
+}
+
 def refresh() {
-	parent.refreshThermostatStatus(getThermID())
+	parent.sendMsg(parent.refreshThermostatStatus(getThermID()))
 }
 
 String getThermID() {
@@ -187,7 +201,7 @@ String getThermID() {
 }
 
 @Field final Map elkThermostatMode = ['0': Off, '1': Heat, '2': Cool, '3': Auto, '4': EmergencyHeat]
-@Field final Map elkThermostatHold = ['0': False, '1': True]
+@Field final Map elkThermostatHold = ['0': Off, '1': On]
 @Field final Map elkThermostatFan = ['0': Auto, '1': On]
 
 @Field static final String On = "on"
@@ -197,14 +211,16 @@ String getThermID() {
 @Field static final String Auto = "auto"
 @Field static final String Circulate = "circulate"
 @Field static final String EmergencyHeat = "emergency heat"
-@Field static final String False = "false"
-@Field static final String True = "true"
 @Field static final String FanAuto = "fan auto"
 @Field static final String FanOn = "fan on"
 
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.9
+ * Added commands setThermostatHoldMode & setThermostatTemperature and attributes supportedThermostatFanModes and
+ *     supportedThermostatModes
  *
  * 0.1.8
  * Added descriptionText to thermostat events

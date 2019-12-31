@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.0" }
+public static String version() { return "v0.2.1" }
 
 import groovy.transform.Field
 
@@ -457,6 +457,16 @@ hubitat.device.HubAction setThermostatHoldMode(String holdmode, String thermosta
 	sendMsg(cmd)
 }
 
+hubitat.device.HubAction setThermostatTemperature(BigDecimal degrees, String thermostat) {
+	if (dbgEnable)
+		log.debug "${device.label} setThermostatTemperature tstat: ${thermostat} hold ${degrees}"
+	String cmd = elkCommands["SetThermostatData"]
+	String value = String.format("%02d", degrees.intValue())
+	String element = "3"
+	cmd = cmd + thermostat + value + element
+	sendMsg(cmd)
+}
+
 hubitat.device.HubAction setCoolingSetpoint(BigDecimal degrees, String thermostat) {
 	if (dbgEnable)
 		log.debug "${device.label} setCoolingSetpoint tstat: ${thermostat} temperature ${degrees}"
@@ -704,8 +714,8 @@ private List<Map> parse(String message) {
 		case "ZC":
 			zoneChange(message);
 			break;
-		case "ZV":
-			zoneVoltage(message);
+		case "XK":
+			heartbeat();
 			break;
 		case "CC":
 			outputChange(message);
@@ -719,6 +729,27 @@ private List<Map> parse(String message) {
 		case "AS":
 			statusList = armStatusReport(message);
 			break;
+		case "ZS":
+			zoneStatusReport(message);
+			break;
+		case "CS":
+			outputStatus(message);
+			break;
+		case "DS":
+			lightingDeviceStatus(message);
+			break;
+		case "PC":
+			lightingDeviceChange(message);
+			break;
+		case "LW":
+			statusList = temperatureData(message);
+			break;
+		case "ST":
+			statusList = statusTemperature(message);
+			break;
+		case "TR":
+			thermostatData(message);
+			break;
 		case "IC":
 			statusList = userCodeEntered(message);
 			break;
@@ -728,32 +759,14 @@ private List<Map> parse(String message) {
 		case "AR":
 			alarmReporting(message);
 			break;
-		case "CS":
-			outputStatus(message);
-			break;
-		case "DS":
-			lightingDeviceStatus(message);
-			break;
 		case "PS":
 			lightingBankStatus(message);
-			break;
-		case "PC":
-			lightingDeviceChange(message);
 			break;
 		case "LD":
 			logData(message);
 			break;
-		case "LW":
-			statusList = temperatureData(message);
-			break;
 		case "SD":
 			statusList = stringDescription(message);
-			break;
-		case "ST":
-			statusList = statusTemperature(message);
-			break;
-		case "TR":
-			thermostatData(message);
 			break;
 		case "AM":
 			statusList = updateAlarmAreas(message);
@@ -770,17 +783,11 @@ private List<Map> parse(String message) {
 		case "KF":
 			statusList = keypadFunctionKeyUpdate(message);
 			break;
-		case "XK":
-			heartbeat();
-			break;
 		case "VN":
 			versionNumberReport(message);
 			break;
 		case "ZD":
 			zoneDefinitionReport(message);
-			break;
-		case "ZS":
-			zoneStatusReport(message);
 			break;
 		case "IE":
 			refresh();
@@ -793,6 +800,9 @@ private List<Map> parse(String message) {
 			break;
 		case "AP":
 			updateCustom(message);
+			break;
+		case "ZV":
+			zoneVoltage(message);
 			break;
 		default:
 			if (dbgEnable) log.debug "${device.label}: The ${message.substring(2, 4)} command is unknown";
@@ -1358,6 +1368,7 @@ def connectionStatus(String message) {
 	switch (message.substring(4, 6)) {
 		case "00":
 			log.warn "${device.label} ELKRP disconnected";
+			refresh();
 			break;
 		case "01":
 			log.warn "${device.label} ELKRP is connected";
@@ -1380,7 +1391,7 @@ List<Map> updateSystemTrouble(String message) {
 	for (i = 0; i <= 33; i++) {
 		troubleCode = statuses[i] - 48
 		if (troubleCode || (state.trouble != null && state.trouble.findIndexOf { it == i } != -1)) {
-			troubleMessage = elkTroubleCodes[i.toString]
+			troubleMessage = elkTroubleCodes[i.toString()]
 			if (troubleMessage != null) {
 				if (troubleMessage == BoxTamperTrouble || troubleMessage == TransmitterLowBatteryTrouble || troubleMessage == SecurityAlert ||
 						troubleMessage == LostTransmitterTrouble || troubleMessage == FireTrouble)
@@ -2140,12 +2151,10 @@ def telnetStatus(String status) {
 @Field static final String auto = "auto"
 @Field static final String on = "on"
 @Field static final String circulate = "circulate"
-@Field static final String False = "false"
-@Field static final String True = "true"
 
 @Field final Map elkThermostatModeSet = [off: '0', heat: '1', cool: '2', auto: '3', 'emergency heat': '4']
 @Field final Map elkThermostatFanModeSet = [auto: '0', on: '1', circulate: '0']
-@Field final Map elkThermostatHoldModeSet = [False: '0', True: '1']
+@Field final Map elkThermostatHoldModeSet = [off: '0', on: '1']
 
 @Field final Map elkCommands = [
 		Disarm                 : "a0",
@@ -2451,6 +2460,11 @@ def telnetStatus(String status) {
  *
  * Release Notes (see Known Issues Below)
  *
+ * 0.2.1
+ * Added setThermostatTemperature to thermostat
+ * Fixed bug with trouble code
+ * Changed thermostatHoldMode from true and false to yes and no
+ *
  * 0.2.0
  * Added keypad functionality such as chime and temperature measurement by assigning a keypad number
  *       to this device.  Device area is derived from the area the keypad is assigned to.
@@ -2535,7 +2549,7 @@ def telnetStatus(String status) {
  * 0.1.27
  * You can now change the port on the main device page.  You must click "Initialize" after you save preferences to take effect
  * Changed info logging to only happen if Enable descriptionText logging is turned on the device
- * Reenabled Request Zone Definition and Request Zone Status
+ * Re-enabled Request Zone Definition and Request Zone Status
  * Added Request Output Status
  *
  * 0.1.26
@@ -2570,7 +2584,7 @@ def telnetStatus(String status) {
  * Change switch case to else if statements
  *
  * 0.1.22
- * Fixed code to show operating state and thermostat setpoint on dashboard tile
+ * Fixed code to show operating state and thermostat set point on dashboard tile
  * Reorder some code to see if it helps with some delay issues
  * Consolidated code for zone open and zone closed to see if it helps with some delay issues (need to check if this has any other impact elsewhere)
  *
@@ -2614,7 +2628,7 @@ def telnetStatus(String status) {
  * Added support for outputs
  *
  * 0.1.11
- * Built seperate thermostat child driver should allow for multiple thermostats
+ * Built separate thermostat child driver should allow for multiple thermostats
  *
  * 0.1.10
  * Ability to control thermostat 1
@@ -2644,10 +2658,10 @@ def telnetStatus(String status) {
  * Receive status messages and interpret data
  *
  * 0.1.2
- * Minor changes to script nomenclature and formating
+ * Minor changes to script nomenclature and formatting
  *
  * 0.1.1
- * Abiltiy to connect Elk M1 and see data
+ * Ability to connect Elk M1 and see data
  * Ability to send commands to Elk M1
  * Changed code to input parameter
  *
