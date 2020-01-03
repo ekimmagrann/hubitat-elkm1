@@ -15,14 +15,14 @@
 
  *  A Special Thanks to Doug Beard for the framework of this driver!
  *
- *  I am not a programmer so alot of this work is through trial and error. I also spent a good amount of time looking
+ *  I am not a programmer so a lot of this work is through trial and error. I also spent a good amount of time looking
  *  at other integrations on various platforms. I know someone else was working on an Elk driver that involved an ESP
  *  setup. This is a more direct route using equipment I already owned.
  *
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.1" }
+public static String version() { return "v0.2.2" }
 
 import groovy.transform.Field
 
@@ -89,19 +89,20 @@ metadata {
 	}
 	preferences {
 		input name: "ip", type: "text", title: "IP Address", required: true
-		input name: "port", type: "number", title: "Port", range: 1..65535, required: true
-		input name: "keypad", type: "number", title: "keypad", range: 1..16, required: true
-		input name: "code", type: "text", title: "Code", required: true
-		input name: "timeout", type: "number", title: "Timeout in minutes", range: 0..1999
+		input name: "port", type: "number", title: "Port", range: 1..65535, required: true, defaultValue: 2101
+		input name: "keypad", type: "number", title: "Keypad", range: 1..16, required: true, defaultValue: 1
+		input name: "code", type: "text", title: "User code"
+		input name: "timeout", type: "number", title: "Timeout in minutes", range: 0..1999, defaultValue: 0
 		input name: "tempCelsius", type: "bool", title: "Temperatures in ˚C", defaultValue: false
 		input name: "locationSet", type: "bool", title: "Set location mode", defaultValue: true
 		input name: "dbgEnable", type: "bool", title: "Enable debug logging", defaultValue: false
-		input name: "txtEnable", title: "Enable event logging for system +", type: "enum",
+		input name: "txtEnable", type: "enum", title: "Enable event logging for system +",
 				options: ["none", "all", "keypad", "area"], defaultValue: "all", required: true
-		input name: "switchArm", title: "Switch to arm mode", type: "enum",
+		input name: "switchArm", type: "enum", title: "Switch to arm mode",
 				options: ["none", "away", "stay", "stayInstant", "night", "nightInstant", "vacation",
 						  "nextAway", "nextStay", "forceAway", "forceStay"], defaultValue: "away", required: true
 		input name: "switchDisarm", type: "bool", title: "Allow switch to disarm", defaultValue: true
+		input name: "switchFully", type: "bool", title: "Switch on only when fully armed", defaultValue: true
 	}
 }
 
@@ -114,7 +115,7 @@ def installed() {
 def updated() {
 	log.info "${device.label} Updated..."
 	if (dbgEnable)
-		log.debug "${device.label}: Configuring IP: ${ip}, Port ${port}, Keypad ${keypad}, Code: ${code}, Timeout: ${timeout}"
+		log.debug "${device.label}: Configuring IP: ${ip}, Port ${port}, Keypad ${keypad}, Code: ${code != ""}, Timeout: ${timeout}"
 	sendEvent(name: "numberOfButtons", value: 6, type: "keypad")
 	sendEvent(name: "button1", value: "F1", type: "keypad")
 	sendEvent(name: "button2", value: "F2", type: "keypad")
@@ -130,13 +131,15 @@ def initialize() {
 	if (state.armState != null) state.remove("armState")
 	if (state.armStatus != null) state.remove("armStatus")
 	if (port == null)
-		device.updateSetting("port", [type: "number", value: "2101"])
+		device.updateSetting("port", [type: "number", value: 2101])
 	if (keypad == null)
 		device.updateSetting("keypad", [type: "number", value: 1])
 	if (timeout == null)
-		device.updateSetting("timeout", [type: "number", value: "0"])
+		device.updateSetting("timeout", [type: "number", value: 0])
 	if (tempCelsius == null)
 		device.updateSetting("tempCelsius", [type: "bool", value: "false"])
+	if (locationSet == null)
+		device.updateSetting("locationSet", [type: "bool", value: "true"])
 	if (dbgEnable == null)
 		device.updateSetting("dbgEnable", [type: "bool", value: "false"])
 	if (txtEnable == null)
@@ -145,8 +148,8 @@ def initialize() {
 		device.updateSetting("switchArm", [type: "text", value: "away"])
 	if (switchDisarm == null)
 		device.updateSetting("switchDisarm", [type: "bool", value: "true"])
-	if (locationSet == null)
-		device.updateSetting("locationSet", [type: "bool", value: "true"])
+	if (switchFully == null)
+		device.updateSetting("switchFully", [type: "bool", value: "true"])
 	telnetClose()
 	boolean success = true
 	try {
@@ -875,38 +878,20 @@ def zoneVoltage(String message) {
 List<Map> entryExitChange(String message) {
 	List<Map> statusList = null
 	int sysArea = message.substring(4, 5).toInteger()
+	boolean isEntry = (message.substring(5, 6) != "0")
 	String exitTime = message.substring(6, 12)
-	String armStatus = elkArmStatuses[message.substring(12, 13)]
+	String armStatus
+	if (exitTime == "000000" || isEntry) {
+		armStatus = elkArmStatuses[message.substring(12, 13)]
+	} else {
+		armStatus = elkArmingStatuses[message.substring(12, 13)]
+	}
 	if (dbgEnable)
-		log.debug "${device.label} Area: $sysArea, Time: $exitTime, armStatus: $armStatus"
+		log.debug "${device.label} Area: $sysArea, Time: $exitTime, Entry: $isEntry, armStatus: $armStatus"
 	if (state.keypadAreas != null && state.keypadAreas[sysArea.toString()] != null) {
-		if (exitTime == "000000") {
-			statusList = updateAreaStatus(sysArea, setStatus(sysArea, armStatus))
-		} else if (sysArea == state.area) {
-			if (device.currentState("switch")?.value != null && device.currentState("switch").value == "off") {
-				armStatus = elkArmingStatuses[message.substring(12, 13)]
-				if (armStatus != null && (device.currentState("armStatus")?.value == null || device.currentState("armStatus").value != armStatus)) {
-					statusList = updateAreaStatus(sysArea, [[name: "armStatus", value: armStatus, type: "area"]])
-					switch (armStatus) {
-						case ArmingAway:
-							parent.speakArmingAway()
-							break
-						case ArmingStay:
-						case ArmingStayInstant:
-							parent.speakArmingStay()
-							break
-						case ArmingNight:
-						case ArmingNightInstant:
-							parent.speakArmingNight()
-							break
-						case ArmingVacation:
-							parent.speakArmingVacation()
-							break
-					}
-				}
-			} else {
-				parent.speakEntryDelay()
-			}
+		statusList = updateAreaStatus(sysArea, setStatus(sysArea, armStatus))
+		if (exitTime != "000000" && isEntry && armStatus != Disarmed && sysArea == state.area) {
+			parent.speakEntryDelay()
 		}
 	}
 	return statusList
@@ -951,34 +936,73 @@ List<Map> armStatusReport(String message) {
 }
 
 List<Map> setStatus(int sysArea, String armStatus) {
-	String armMode
-	String hsmSetArm
+	String armMode = "Home"
+	String hsmSetArm = "disarm"
 	Map statusEvent = [name: "armStatus", value: armStatus, type: "area"]
 	Map switchEvent
-	if (armStatus == Disarmed) {
-		armMode = "Home"
-		hsmSetArm = "disarm"
-		switchEvent = [name: "switch", value: "off", type: "area"]
-	} else if (armStatus == ArmedStay || armStatus == ArmedStayInstant) {
-		armMode = "Stay"
-		hsmSetArm = "armHome"
-		switchEvent = [name: "switch", value: "on", type: "area"]
-	} else if (armStatus == ArmedNight || armStatus == ArmedNightInstant) {
-		armMode = "Night"
-		hsmSetArm = "armNight"
-		switchEvent = [name: "switch", value: "on", type: "area"]
-	} else if (armStatus == ArmedVacation) {
-		armMode = "Vacation"
-		hsmSetArm = "armAway"
-		switchEvent = [name: "switch", value: "on", type: "area"]
-	} else {
-		armMode = "Away"
-		hsmSetArm = "armAway"
-		switchEvent = [name: "switch", value: "on", type: "area"]
+	boolean armChange = false
+	if (sysArea == state.area && (device.currentState("armStatus")?.value == null || device.currentState("armStatus").value != armStatus)) {
+		armChange = true
+	}
+	switch (armStatus) {
+		case Disarmed:
+			switchEvent = [name: "switch", value: "off", type: "area"]
+			break
+		case ArmedAway:
+			armMode = "Away"
+			hsmSetArm = "armAway"
+			if (switchFully)
+				switchEvent = [name: "switch", value: "on", type: "area"]
+			break
+		case ArmedStay:
+		case ArmedStayInstant:
+			armMode = "Stay"
+			hsmSetArm = "armHome"
+			if (switchFully)
+				switchEvent = [name: "switch", value: "on", type: "area"]
+			break
+		case ArmedNight:
+		case ArmedNightInstant:
+			armMode = "Night"
+			hsmSetArm = "armNight"
+			if (switchFully)
+				switchEvent = [name: "switch", value: "on", type: "area"]
+			break
+		case ArmedVacation:
+			armMode = "Vacation"
+			hsmSetArm = "armAway"
+			if (switchFully)
+				switchEvent = [name: "switch", value: "on", type: "area"]
+			break
+		case ArmingAway:
+			if (armChange)
+				parent.speakArmingAway()
+			if (!switchFully)
+				switchEvent = [name: "switch", value: "on", type: "area"]
+			break
+		case ArmingStay:
+		case ArmingStayInstant:
+			if (armChange)
+				parent.speakArmingStay()
+			if (!switchFully)
+				switchEvent = [name: "switch", value: "on", type: "area"]
+			break
+		case ArmingNight:
+		case ArmingNightInstant:
+			if (armChange)
+				parent.speakArmingNight()
+			if (!switchFully)
+				switchEvent = [name: "switch", value: "on", type: "area"]
+			break
+		case ArmingVacation:
+			if (armChange)
+				parent.speakArmingVacation()
+			if (!switchFully)
+				switchEvent = [name: "switch", value: "on", type: "area"]
+			break
 	}
 	Map modeEvent = [name: "armMode", value: armMode, type: "area"]
-	if (sysArea == state.area && (device.currentState("armStatus")?.value == null || device.currentState("armStatus").value != armStatus)
-			&& (device.currentState("armMode")?.value == null || device.currentState("armMode").value != armMode)) {
+	if (sysArea == state.area && (device.currentState("armMode")?.value == null || device.currentState("armMode").value != armMode)) {
 		if (locationSet) {
 			def allmodes = location.getModes()
 			int idx = allmodes.findIndexOf { it.name == armMode }
@@ -997,7 +1021,11 @@ List<Map> setStatus(int sysArea, String armStatus) {
 		}
 		parent.setHSMArm(hsmSetArm, device.label + " was armed " + armMode)
 	}
-	return [statusEvent, switchEvent, modeEvent]
+	if (switchEvent) {
+		return [statusEvent, switchEvent, modeEvent]
+	} else {
+		return [statusEvent, modeEvent]
+	}
 }
 
 List<Map> updateAreaStatus(int sysArea, List<Map> areaStatus) {
@@ -1819,7 +1847,7 @@ def telnetTimeout() {
 	telnetStatus("timeout")
 }
 
-int getReTry(Boolean inc) {
+int getReTry(boolean inc) {
 	int reTry = (state.reTryCount ?: 0).toInteger()
 	if (inc) reTry++
 	state.reTryCount = reTry
@@ -1937,6 +1965,7 @@ def telnetStatus(String status) {
 ]
 
 @Field final Map elkArmingStatuses = [
+		'0': Disarmed,
 		'1': ArmingAway,
 		'2': ArmingStay,
 		'3': ArmingStayInstant,
@@ -2460,10 +2489,13 @@ def telnetStatus(String status) {
  *
  * Release Notes (see Known Issues Below)
  *
+ * 0.2.2
+ * Added setting to control if switch is turned on when arming or when fully armed.
+ *
  * 0.2.1
- * Added setThermostatTemperature to thermostat
- * Fixed bug with trouble code
- * Changed thermostatHoldMode from true and false to yes and no
+ * Added setThermostatTemperature to thermostat.
+ * Fixed bug with trouble code.
+ * Changed thermostatHoldMode from true and false to yes and no.
  *
  * 0.2.0
  * Added keypad functionality such as chime and temperature measurement by assigning a keypad number
