@@ -25,7 +25,7 @@ metadata {
 	definition(name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
 		capability "Actuator"
 		capability "Switch"
-		command "push", [[name:"duration", type: "NUMBER"]]
+		command "push", [[name: "duration", type: "NUMBER"]]
 		command "refresh"
 	}
 	preferences {
@@ -102,7 +102,7 @@ def refresh() {
  * Added info logging
  *
  * 0.1.3
- * Added Monentary capability
+ * Added Momentary capability
  *
  * 0.1.2
  * Cleaned up code

@@ -59,9 +59,9 @@ metadata {
 		attribute "lastUser", "string"
 	}
 	preferences {
-		input name: "code", type: "text", title: "Code", description: "User code"
-		input name: "dbgEnable", title: "Enable debug logging", type: "bool", defaultValue: true
-		input name: "txtEnable", title: "Enable descriptionText logging", type: "enum",
+		input name: "code", type: "text", title: "User code"
+		input name: "dbgEnable", type: "bool", title: "Enable debug logging", defaultValue: true
+		input name: "txtEnable", type: "enum", title: "Enable descriptionText logging",
 				options: ["none", "all", "keypad", "area"], defaultValue: "all", required: true
 	}
 }
@@ -117,10 +117,10 @@ def parse(List statuses) {
 					eventMap.descriptionText = device.label + " " + eventMap.name + " was " + eventMap.value
 				else
 					eventMap.descriptionText = device.label + " " + eventMap.descriptionText
-				sendEvent(eventMap)
 				if ((txtEnable == "all" || txtEnable == eventMap.type) && eventMap.name != "armState" && eventMap.name != "temperature" &&
 						(eventMap.isStateChange == null || eventMap.isStateChange))
 					log.info eventMap.descriptionText
+				sendEvent(eventMap)
 			}
 		}
 	}
