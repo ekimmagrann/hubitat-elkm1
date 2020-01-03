@@ -17,19 +17,15 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.3" }
+public static String version() { return "v0.1.4" }
 
 metadata {
 	definition(name: "Elk M1 Driver Output-DoorControl", namespace: "captncode", author: "captncode") {
 		capability "Actuator"
 		capability "DoorControl"
 		capability "Momentary"
-		command "close"
-		command "open"
-		command "push"
 		command "report", ["bool", "string"]
 		command "refresh"
-		attribute "door", "string"
 	}
 	preferences {
 		input name: "transitionTime", type: "enum", title: "Transition time", required: true,
@@ -94,7 +90,7 @@ def setOpen() {
 def push() {
 	String output = device.deviceNetworkId
 	output = output.substring(output.length() - 3).take(3)
-	parent.ControlOutputOn(output.toInteger(), '00001')
+	parent.sendMsg(parent.ControlOutputOn(output.toInteger(), '00001'))
 	if (state.open != null && state.open) {
 		if (device.currentState("door")?.value == null || device.currentState("door").value != "closing") {
 			String descriptionText = "${device.label} is closing"
@@ -125,12 +121,15 @@ def open() {
 }
 
 def refresh() {
-	parent.refreshOutputStatus()
+	parent.refreshZoneStatus()
 }
 
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.4
+ * Updated push to work with parent driver change
  *
  * 0.1.3
  * Minor cleanup of descriptionText on events
