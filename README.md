@@ -6,7 +6,8 @@ application and device drivers with these new ones.  If you are upgrading from E
 Version 0.2.0, you will need to replace the application code, the Elk M1 Driver and the Elk M1 Driver Task with the 
 new ones.  Other drivers may be updated or added as desired.
 
-In both cases, you will then need to open the main Elk M1 device, update the setting as desired under 'Preferences' 
+In any case upon updating the main Elk M1 Driver, you will then need to open the main Elk M1 device, update the settings
+as desired under 'Preferences' 
 and click 'Save Preferences'.
 
 New Installation Process:
