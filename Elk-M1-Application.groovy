@@ -17,7 +17,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.1" }
+public static String version() { return "v0.2.2" }
 
 import groovy.transform.Field
 
@@ -78,8 +78,8 @@ def mainPage() {
 		} else {
 			section("<h1>Device Mapping and Integration</h1>") {
 				href(name: "zoneMapsPage", title: "Devices",
-						description: "Create Virtual Devices and Map them to Existing Zone, Output, Task, Lighting, Thermostat, Keypad and/or " +
-								"Speech Devices in your Elk M1 setup.\nIntegrate virtual Elk M1 devices with physical devices.",
+						description: "Create Virtual Devices and Map them to Existing Zone, Output, Task, Lighting, Thermostat, Keypad, " +
+								"Custom, Counter and/or Speech Devices in your Elk M1 setup.\nIntegrate virtual Elk M1 devices with physical devices.",
 						page: "zoneMapsPage")
 			}
 
@@ -217,7 +217,7 @@ def zoneMapsPage() {
 	}
 	state.editedZoneDNI = null
 	Map integrationMap = [:]
-	settings.findAll{it.key.startsWith("integrate:")}.each {
+	settings.findAll { it.key.startsWith("integrate:") }.each {
 		String[] integrations = it.key.split(':')
 		if (integrations.size() > 2) {
 			if (integrationMap[integrations[1]] == null) {
@@ -230,7 +230,8 @@ def zoneMapsPage() {
 	dynamicPage(name: "zoneMapsPage", title: "", install: true, uninstall: false) {
 
 		section("<h1>Device Maps</h1>") {
-			paragraph "The partition of your Elk M1 Installation may consist of Zone, Output, Task, Lighting, Thermostat, Keypad and Speech Devices.  You can choose to map the devices manually or use the import method. "
+			paragraph "The partition of your Elk M1 Installation may consist of Zone, Output, Task, Lighting, Thermostat, Keypad, " +
+					"Custom, Counter and Speech Devices.  You can choose to map the devices manually or use the import method. "
 			paragraph "You'll want to determine the device number as it is defined in your Elk M1 setup. " +
 					" Define a new device in Elk M1 application and the application will then create either a Virtual sensor component device or an Elk Child device, which will report the state of the Elk M1 device to which it is mapped. " +
 					" The devices can be used in Rule Machine or any other application that is capable of leveraging the devices capability.  Elk M1 is capable of 208 zones, your zone map should correspond to the numeric representation of that zone."
@@ -251,10 +252,14 @@ def zoneMapsPage() {
 					page: "defineLightMap")
 		}
 
-		String description
+		String description = ""
+		def deviceInfo = getChildDevice(state.ElkM1DNI)
 		Boolean hasCapabilities
 		section("<h2>Existing Devices</h2>") {
-			paragraph "View or change the integration of virtual Elk M1 devices with physical devices."
+			href(name: "editParent", title: "${deviceInfo.label}",
+					description: "Click to edit parent device",
+					url: "/device/edit/${deviceInfo.id}")
+			paragraph "View or change the integration of virtual Elk M1 child devices with physical devices."
 			getChildDevice(state.ElkM1DNI).getChildDevices().sort { it.deviceNetworkId }.each {
 				hasCapabilities = false
 				it.getCapabilities().each {
@@ -263,7 +268,7 @@ def zoneMapsPage() {
 				}
 				if (integrationMap[it.deviceNetworkId] != null) {
 					description = "Integrated using " + integrationMap[it.deviceNetworkId].join(', ')
-				} else if(hasCapabilities) {
+				} else if (hasCapabilities) {
 					description = "Add Integrations"
 				} else {
 					description = "Device Details"
@@ -286,9 +291,9 @@ def defineZoneMap() {
 			paragraph "Create a Map for a device in Elk M1"
 			input "zoneName", "text", title: "Device Name", required: true, multiple: false, defaultValue: "Zone x", submitOnChange: false
 			input "zoneNumber", "number", title: "Which Device 1 - 208", required: true, multiple: false, defaultValue: 1, range: "1..208", submitOnChange: false
-			input "zoneType", "enum", title: "Zone, Output, Task, Thermostat, Keypad or Speech Device?", required: true, multiple: false,
+			input "zoneType", "enum", title: "Zone, Output, Task, Thermostat, Keypad, Custom, Counter or Speech Device?", required: true, multiple: false,
 					options: [['00': "Zone (1 - 208)"], ['04': "Output (1 - 208)"], ['05': "Task (1 - 32)"], ['11': "Thermostat (1 - 16)"],
-							  ['03': "Keypad (1 - 16)"], ['SP': "Speech (1)"]]
+							  ['03': "Keypad (1 - 16)"], ['09': "Custom (1 - 20)"], ['10': "Counter (1 - 64)"], ['SP': "Speech (1)"]]
 		}
 	}
 }
@@ -319,7 +324,8 @@ def defineZoneMapImport() {
 		section("<h1>Import Elk Zones</h1>") {
 			paragraph "Create a Map for a zone in Elk M1"
 			input "deviceType", "enum", title: "Select Device Type", required: true, multiple: false,
-					options: [['00': "Zones"], ['04': "Output"], ['05': "Task"], ['07': "Lighting"], ['11': "Thermostat"], ['03': "Keypad"]]
+					options: [['00': "Zones"], ['04': "Output"], ['05': "Task"], ['07': "Lighting"], ['11': "Thermostat"], ['03': "Keypad"],
+							  ['09': "Custom"], ['10': "Counter"]]
 		}
 	}
 }
@@ -346,6 +352,9 @@ def editZoneMapPage(message) {
 
 	dynamicPage(name: "editZoneMapPage", title: "") {
 		section("<h1>${zoneDevice.label}</h1>") {
+			href(name: "editChild", title: "Edit Device",
+					description: "Click to edit this device",
+					url: "/device/edit/${zoneDevice.id}")
 			paragraph paragraphText
 			capList.each { cap ->
 				input "integrate:$state.editedZoneDNI:$cap", "${capabilityMap[cap]}", title: "$cap devices to integrate", required: false, multiple: true, submitOnChange: true
@@ -368,7 +377,7 @@ List<String> subscribeDevice(def zoneDevice) {
 	Map mySubscription = [:]
 	atomicState.subscriptionMap.each { k, v ->
 		List subscriptions = []
-		v.findAll{!it.startsWith(targetDNID + ":")}.each {
+		v.findAll { !it.startsWith(targetDNID + ":") }.each {
 			subscriptions << it
 		}
 		if (subscriptions.size() > 0)
@@ -400,7 +409,7 @@ List<String> subscribeDevice(def zoneDevice) {
 				atomicState.RevSubscriptionMap = myRevSubscription
 				stateSaved = true
 				attributeMap.each { key, value ->
-					if (key.startsWith( capability + ":")) {
+					if (key.startsWith(capability + ":")) {
 						attribute = key.substring(capability.length() + 1)
 						subscribe(it, attribute, integrationHandler)
 						subscribe(zoneDevice, attribute, revIntegrationHandler)
@@ -429,7 +438,7 @@ List<String> subscribeDevice(def zoneDevice) {
 def subscriptionCleanup() {
 	Boolean fixSubscriptions = false
 	def zoneDevice
-	settings.findAll{it.key.startsWith("integrate:")}.each {
+	settings.findAll { it.key.startsWith("integrate:") }.each {
 		String[] integrations = it.key.split(':')
 		if (integrations.size() < 3) {
 			log.trace app.name + ": Removing malformed integration setting $it.key"
@@ -446,7 +455,7 @@ def subscriptionCleanup() {
 				app.removeSetting(it.key)
 				fixSubscriptions = true
 			} else {
-				it.value.each{ otherDevice ->
+				it.value.each { otherDevice ->
 					if (!otherDevice.hasCapability(integrations[2])) {
 						log.trace app.name + ": ${otherDevice.label} no longer supports capability ${integrations[2]}"
 						fixSubscriptions = true
@@ -474,7 +483,7 @@ int resubscribe() {
 		subscribe(location, "hsmStatus", statusHandler)
 	atomicState.subscriptionMap = [:]
 	atomicState.RevSubscriptionMap = [:]
-	settings.findAll{it.key.startsWith("integrate:")}.each {
+	settings.findAll { it.key.startsWith("integrate:") }.each {
 		String[] integrations = it.key.split(':')
 		if (integrations[1] != lastDNID) {
 			zoneDevice = getChildDevice(state.ElkM1DNI).getChildDevice(integrations[1])
@@ -837,33 +846,36 @@ private removeChildDevices(delete) {
 }
 
 @Field final Map capabilityMap = [
-		"PushableButton" : "capability.pushableButton",
-		"RelativeHumidityMeasurement" : "capability.relativeHumidityMeasurement",
-		"Switch" : "capability.switch",
-		"SwitchLevel" : "capability.switchLevel",
-		"Thermostat" : "capability.thermostat"
+		"PushableButton"             : "capability.pushableButton",
+		"RelativeHumidityMeasurement": "capability.relativeHumidityMeasurement",
+		"Switch"                     : "capability.switch",
+		"SwitchLevel"                : "capability.switchLevel",
+		"Thermostat"                 : "capability.thermostat"
 ]
 
 @Field final Map attributeMap = [
-		"PushableButton:pushed" : "push",
-		"RelativeHumidityMeasurement:humidity" : "attributeonly",
-		"Switch:switch.on" : "on",
-		"Switch:switch.off" : "off",
-		"SwitchLevel:level" : "setLevel",
-		"Thermostat:coolingSetpoint" : "setCoolingSetpoint",
-		"Thermostat:heatingSetpoint" : "setHeatingSetpoint",
-		"Thermostat:supportedThermostatFanModes" : "attributeonly",
-		"Thermostat:supportedThermostatModes" : "attributeonly",
-		"Thermostat:temperature" : "setThermostatTemperature",
-		"Thermostat:thermostatFanMode" : "setThermostatFanMode",
-		"Thermostat:thermostatMode" : "setThermostatMode",
-		"Thermostat:thermostatOperatingState" : "attributeonly",
-		"Thermostat:thermostatSetpoint" : "attributeonly"
+		"PushableButton:pushed"                 : "push",
+		"RelativeHumidityMeasurement:humidity"  : "attributeonly",
+		"Switch:switch.on"                      : "on",
+		"Switch:switch.off"                     : "off",
+		"SwitchLevel:level"                     : "setLevel",
+		"Thermostat:coolingSetpoint"            : "setCoolingSetpoint",
+		"Thermostat:heatingSetpoint"            : "setHeatingSetpoint",
+		"Thermostat:supportedThermostatFanModes": "attributeonly",
+		"Thermostat:supportedThermostatModes"   : "attributeonly",
+		"Thermostat:temperature"                : "setThermostatTemperature",
+		"Thermostat:thermostatFanMode"          : "setThermostatFanMode",
+		"Thermostat:thermostatMode"             : "setThermostatMode",
+		"Thermostat:thermostatOperatingState"   : "attributeonly",
+		"Thermostat:thermostatSetpoint"         : "attributeonly"
 ]
 
 /***********************************************************************************************************************
  *
  * Release Notes
+ *
+ * Version: 0.2.2
+ * Added import of Custom and Counter value devices.
  *
  * Version: 0.2.1
  * Added integration of virtual child devices with physical HE devices.
