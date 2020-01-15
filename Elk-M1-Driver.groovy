@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.2" }
+public static String version() { return "v0.2.3" }
 
 import groovy.transform.Field
 
@@ -45,11 +45,13 @@ metadata {
 		command "disarm"
 		command "push", [[name: "button*", description: "1 - 6", type: "NUMBER"]]
 		command "refreshArmStatus"
+		command "refreshCounterValues"
+		command "refreshCustomValues"
 //		command "refreshKeypadArea"
 		command "refreshLightingStatus"
 		command "refreshOutputStatus"
 		command "refreshTemperatureStatus"
-		command "refreshSystemTroubleStatus"
+		command "refreshTroubleStatus"
 		command "refreshZoneStatus"
 //This is used to run the zone import script
 //		command "RequestTextDescriptions"
@@ -170,7 +172,7 @@ def initialize() {
 }
 
 def refresh() {
-	List cmds = []
+	List<hubitat.device.HubAction> cmds = []
 	cmds.add(refreshKeypadArea())
 	cmds.add(refreshVersionNumber())
 	cmds.add(refreshTemperatureStatus())
@@ -490,6 +492,29 @@ hubitat.device.HubAction setHeatingSetpoint(BigDecimal degrees, String thermosta
 	sendMsg(cmd)
 }
 
+hubitat.device.HubAction setCounterValue(BigDecimal counter, BigDecimal value) {
+	if (counter >= 1 && counter <= 64 && value >= 0 && value <= 65535) {
+		if (dbgEnable)
+			log.debug "${device.label} setCounterValue counter: ${counter} value ${value}"
+		String cmd = elkCommands["SetCounterValue"] + String.format("%02d", counter.intValue()) + String.format("%05d", value.intValue())
+		sendMsg(cmd)
+	}
+}
+
+hubitat.device.HubAction setCustomTime(BigDecimal custom, BigDecimal hours, BigDecimal minutes) {
+	BigDecimal value = hours * 256 + minutes
+	setCustomValue(custom, value)
+}
+
+hubitat.device.HubAction setCustomValue(BigDecimal custom, BigDecimal value) {
+	if (custom >= 1 && custom <= 20 && value >= 0 && value <= 65535) {
+		if (dbgEnable)
+			log.debug "${device.label} setCustomValue custom: ${custom} value ${value}"
+		String cmd = elkCommands["SetCustomValue"] + String.format("%02d", custom.intValue()) + String.format("%05d", value.intValue())
+		sendMsg(cmd)
+	}
+}
+
 hubitat.device.HubAction requestZoneDefinitions() {
 	if (dbgEnable)
 		log.debug "${device.label} requestZoneDefinitions"
@@ -508,6 +533,37 @@ hubitat.device.HubAction refreshOutputStatus() {
 	if (dbgEnable)
 		log.debug "${device.label} refreshOutputStatus"
 	String cmd = elkCommands["RequestOutputStatus"]
+	sendMsg(cmd)
+}
+
+def refreshCounterValues() {
+	List<hubitat.device.HubAction> cmds = []
+	int i
+	for (i = 1; i <= 64; i += 1) {
+		if (getChildDevice(device.deviceNetworkId + "_X_" + String.format("%02d", i)) != null)
+			cmds.add(refreshCounterValue(i))
+	}
+	return delayBetween(cmds, 500)
+}
+
+hubitat.device.HubAction refreshCounterValue(BigDecimal counter) {
+	if (dbgEnable)
+		log.debug "${device.label} refreshCounterValue(${counter})"
+	String cmd = elkCommands["RequestCounterValue"] + String.format("%02d", counter.toInteger())
+	sendMsg(cmd)
+}
+
+hubitat.device.HubAction refreshCustomValues() {
+	if (dbgEnable)
+		log.debug "${device.label} refreshCustomValues"
+	String cmd = elkCommands["RequestAllCustomValues"]
+	sendMsg(cmd)
+}
+
+hubitat.device.HubAction refreshCustomValue(BigDecimal custom) {
+	if (dbgEnable)
+		log.debug "${device.label} refreshCustomValue(${custom})"
+	String cmd = elkCommands["RequestCustomValue"] + String.format("%02d", custom.toInteger())
 	sendMsg(cmd)
 }
 
@@ -701,7 +757,11 @@ String addChksum(String msg) {
 	char[] msgArray = msg.toCharArray()
 	int msgSum = 0
 	msgArray.each { (msgSum += (int) it) }
-	String chkSumStr = msg + Integer.toHexString(256 - (msgSum % 256)).toUpperCase().padLeft(2, '0')
+	String chkSumStr = Integer.toHexString(256 - (msgSum % 256)).toUpperCase().padLeft(2, '0')
+	if (chkSumStr.length() == 2)
+		return msg + chkSumStr
+	else
+		return msg + chkSumStr.substring(1)
 }
 
 //Elk M1 Message Send Lines - End of
@@ -802,13 +862,22 @@ private List<Map> parse(String message) {
 			statusList = updateSystemTrouble(message);
 			break;
 		case "AP":
+			receiveTextString(message);
+			break;
+		case "CR":
 			updateCustom(message);
+			break;
+		case "CV":
+			updateCounter(message);
 			break;
 		case "ZV":
 			zoneVoltage(message);
 			break;
+		case "UA":
+		case "RR":
+			break;
 		default:
-			if (dbgEnable) log.debug "${device.label}: The ${message.substring(2, 4)} command is unknown";
+			if (txtEnable) log.info "${device.label}: The ${message.substring(2, 4)} command is unknown";
 			break;
 	}
 	if (statusList != null && statusList.size() > 0) {
@@ -1012,11 +1081,11 @@ List<Map> setStatus(int sysArea, String armStatus) {
 				idx = allmodes.findIndexOf { it.name == "Home" }
 			}
 			if (idx != -1) {
-				String curmode = location.currentMode
-				String newmode = allmodes[idx].getName()
+				String curmode = location.currentMode.name
+				String newmode = allmodes[idx].name
 				location.setMode(newmode)
-				if (dbgEnable)
-					log.debug "${device.label}: Location Mode changed from $curmode to $newmode"
+				//if (dbgEnable)
+				log.debug "${device.label}: Location Mode changed from $curmode to $newmode"
 			}
 		}
 		parent.setHSMArm(hsmSetArm, device.label + " was armed " + armMode)
@@ -1037,7 +1106,9 @@ List<Map> updateAreaStatus(int sysArea, List<Map> areaStatus) {
 				if (it == "00") {
 					statusList = areaStatus
 				} else {
-					getChildDevice(device.deviceNetworkId + "_P_0" + it)?.parse(areaStatus)
+					def keypadDevice = getChildDevice(device.deviceNetworkId + "_P_0" + it)
+					if (keypadDevice != null && keypadDevice.hasCapability("Actuator"))
+						keypadDevice.parse(areaStatus)
 				}
 			}
 		}
@@ -1054,7 +1125,7 @@ List<Map> updateKeypadStatus(String keypadNumber, List<Map> keypadStatus) {
 	if (keypadDevice != null) {
 		if (keypadDevice.hasCapability("Actuator")) {
 			keypadDevice.parse(keypadStatus)
-		} else if (keypadStatus.First().name == "temperature") {
+		} else if (keypadStatus.size() > 0 && keypadStatus.First().name == "temperature") {
 			Map eventMap = keypadStatus.First()
 			if (eventMap.descriptionText == null)
 				eventMap.descriptionText = keypadDevice.label + " " + eventMap.name + " was " + eventMap.value
@@ -1076,7 +1147,9 @@ List<Map> userCodeEntered(String message) {
 			log.info "${device.label} lastUser was: ${userNumber} on keypad ${keypadNumber}"
 		Map userEvent = [name: "lastUser", value: userNumber, type: "keypad"]
 		statusList = [userEvent]
-		getChildDevice(device.deviceNetworkId + "_P_0" + keypadNumber)?.parse([userEvent])
+		def keypadDevice = getChildDevice(device.deviceNetworkId + "_P_0" + keypadNumber)
+		if (keypadDevice != null && keypadDevice.hasCapability("Actuator"))
+			keypadDevice.parse([userEvent])
 	} else {
 		statusList = updateKeypadStatus(keypadNumber, [[name: "invalidUser", value: userCode, type: "keypad"]])
 	}
@@ -1301,7 +1374,7 @@ def keypadAreaAssignments(String message) {
 				myArea = sysArea
 			String keypadNumber = String.format("%02d", i)
 			def keypadDevice = getChildDevice("${device.deviceNetworkId}_P_0${keypadNumber}")
-			if (keypadDevice != null) {
+			if (keypadDevice != null && keypadDevice.hasCapability("Actuator")) {
 				if (areas[sysArea] == null)
 					areas[sysArea] = []
 				areas[sysArea] << keypadNumber
@@ -1471,10 +1544,44 @@ def updateAlarmZones(String message) {
 	}
 }
 
-def updateCustom(String message) {
+def receiveTextString(String message) {
 	String textString = message.substring(4)
 	if (txtEnable != "none")
-		log.info "${device.label} updateCustom: ${textString}"
+		log.info "${device.label} receiveTextString: ${textString}"
+}
+
+def updateCustom(String message) {
+	String custom = message.substring(4, 6)
+	if (custom == "00") {
+		int offset
+		int i
+		for (i = 1; i <= 20; i++) {
+			offset = i * 6
+			updateCustom(String.format("%02d", i), message.substring(offset, offset + 5).toInteger(), message.substring(offset + 5, offset + 6))
+		}
+	} else {
+		updateCustom(custom, message.substring(6, 11).toInteger(), message.substring(11, 12))
+	}
+}
+
+def updateCustom(String custom, int value, String format) {
+	if (dbgEnable)
+		log.debug "${device.label} updateCustom ${custom} = ${value}, format ${format}"
+	def customDevice = getChildDevice(device.deviceNetworkId + "_Y_" + custom)
+	if (customDevice != null) {
+		customDevice.parse([value: value, format: format])
+	}
+}
+
+def updateCounter(String message) {
+	String counter = message.substring(4, 6)
+	int value = message.substring(6, 11).toInteger()
+	if (dbgEnable)
+		log.debug "${device.label} updateCounter ${counter} = ${value}"
+	def counterDevice = getChildDevice(device.deviceNetworkId + "_X_" + counter)
+	if (counterDevice != null) {
+		counterDevice.parse(value.toString())
+	}
 }
 
 def zoneDefinitionReport(String message) {
@@ -1736,6 +1843,32 @@ def createZone(zoneInfo) {
 					log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Lighting Switch"
 				addChildDevice("captncode", "Elk M1 Driver Lighting Switch", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
 			}
+		} else if (dbgEnable) {
+			log.debug "${device.label}: deviceNetworkId = ${deviceNetworkId} already exists"
+		}
+	} else if (zoneInfo.zoneType == "09") {
+		zoneNumber = zoneNumber.substring(1, 3)
+		if (zoneName == null) {
+			zoneName = "Custom ${zoneNumber} - ${zoneInfo.zoneText}"
+		}
+		deviceNetworkId = "${device.deviceNetworkId}_Y_${zoneNumber}"
+		if (getChildDevice(deviceNetworkId) == null) {
+			if (txtEnable != "none")
+				log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Custom"
+			addChildDevice("captncode", "Elk M1 Driver Custom", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
+		} else if (dbgEnable) {
+			log.debug "${device.label}: deviceNetworkId = ${deviceNetworkId} already exists"
+		}
+	} else if (zoneInfo.zoneType == "10") {
+		zoneNumber = zoneNumber.substring(1, 3)
+		if (zoneName == null) {
+			zoneName = "Counter ${zoneNumber} - ${zoneInfo.zoneText}"
+		}
+		deviceNetworkId = "${device.deviceNetworkId}_X_${zoneNumber}"
+		if (getChildDevice(deviceNetworkId) == null) {
+			if (txtEnable != "none")
+				log.info "${device.label}: Creating ${zoneName} with deviceNetworkId = ${deviceNetworkId} of type: Counter"
+			addChildDevice("captncode", "Elk M1 Driver Counter", deviceNetworkId, [name: zoneName, isComponent: false, label: zoneName])
 		} else if (dbgEnable) {
 			log.debug "${device.label}: deviceNetworkId = ${deviceNetworkId} already exists"
 		}
@@ -2211,8 +2344,13 @@ def telnetStatus(String status) {
 		RequestKeypadPress     : "kf",
 		RequestKeypadStatus    : "kc",
 		RequestOutputStatus    : "cs",
+		RequestAllCustomValues : "cp",
+		RequestCustomValue     : "cr",
+		RequestCounterValue    : "cv",
 		TaskActivation         : "tn",
 		SetThermostatData      : "ts",
+		SetCounterValue        : "cx",
+		SetCustomValue         : "cw",
 		ZoneBypass             : "zb",
 		ZoneTrigger            : "zt",
 		ZoneVoltage            : "zv",
@@ -2488,6 +2626,13 @@ def telnetStatus(String status) {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.2.3
+ * Added Counter and Custom value device types.
+ * Fixed long standing issue with checksums on Elk commands.  1% of the checksums were generating wrong causing
+ *       those commands to quietly fail.
+ * Fixed incorrectly named command refreshSystemTroubleStatus.  Renamed it to refreshTroubleStatus.
+ * Fixed errors with a keypad device that is a Virtual Temperature Probe.
  *
  * 0.2.2
  * Added setting to control if switch is turned on when arming or when fully armed.
