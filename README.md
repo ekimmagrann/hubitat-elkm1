@@ -38,17 +38,23 @@ If you plan on importing/creating lighting devices, you will also need the follo
 
 **Elk M1 Driver Lighting Switch**
 
+If you plan on importing/creating custom or counter value devices, you will also need one or both the following two drivers:
+
+**Elk M1 Driver Custom**
+
+**Elk M1 Driver Counter**
+
 Optionally, you may add the following and change your child device driver after import to use if desired:
 
 **Elk M1 Driver Output DoorControl**
 
-**Virtual Carbon Monoxide Detector**
-
-**Virtual Smoke Detector**
-
 **Virtual Tamper Alert Detector**
 
 **Virtual Water Sensor**
+
+**Virtual Carbon Monoxide Detector**  ** Obsolete.  Hubitat Elevation now has its own system driver for this.
+
+**Virtual Smoke Detector**  ** Obsolete.  Hubitat Elevation now has its own system driver for this.
 
 After the app and all desired drivers are loaded into Hubitat Elevation, Go to 'Apps'
 
