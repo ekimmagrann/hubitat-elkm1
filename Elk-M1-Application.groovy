@@ -17,7 +17,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.2" }
+public static String version() { return "v0.2.3" }
 
 import groovy.transform.Field
 
@@ -747,49 +747,49 @@ def statusHandler(com.hubitat.hub.domain.Event evt) {
 def speakArmed() {
 	if (!armedText)
 		armedText = "Armed"
-	speakIt(armedText, armedBool)
+	speakIt(armedText, armedBool == null ? false : armedBool)
 }
 
 def speakArmingAway() {
 	if (!armingAwayText)
 		armingAwayText = "Arming Away"
-	speakIt(armingAwayText, armingAwayBool)
+	speakIt(armingAwayText, armingAwayBool == null ? false : armingAwayBool)
 }
 
 def speakArmingVacation() {
 	if (!armingVacationText)
 		armingVacationText = "Arming Vacation"
-	speakIt(armingVacationText, armingVacationBool)
+	speakIt(armingVacationText, armingVacationBool == null ? false : armingVacationBool)
 }
 
 def speakArmingStay() {
 	if (!armingStayText)
 		armingStayText = "Arming Stay"
-	speakIt(armingStayText, armingStayBool)
+	speakIt(armingStayText, armingStayBool == null ? false : armingStayBool)
 }
 
 def speakArmingNight() {
 	if (!armingNightText)
 		armingNightText = "Arming Night"
-	speakIt(armingNightText, armingNightBool)
+	speakIt(armingNightText, armingNightBool == null ? false : armingNightBool)
 }
 
 def speakDisarmed() {
 	if (!disarmedText)
 		disarmedText = "Disarmed"
-	speakIt(disarmedText, disarmedBool)
+	speakIt(disarmedText, disarmedBool == null ? false : disarmedBool)
 }
 
 def speakEntryDelay() {
 	if (!entryDelayAlarmText)
 		entryDelayAlarmText = "Entry Delay in Progress, Alarm eminent"
-	speakIt(entryDelayAlarmText, entryDelayAlarmBool)
+	speakIt(entryDelayAlarmText, entryDelayAlarmBool == null ? false : entryDelayAlarmBool)
 }
 
 def speakAlarm() {
 	if (!alarmText)
 		alarmText = "Alarm, Alarm, Alarm, Alarm, Alarm"
-	speakIt(alarmText, alarmBool)
+	speakIt(alarmText, alarmBool == null ? false : alarmBool)
 }
 
 private speakIt(String str, boolean isEnabled = true) {
@@ -873,6 +873,9 @@ private removeChildDevices(delete) {
 /***********************************************************************************************************************
  *
  * Release Notes
+ *
+ * Version: 0.2.3
+ * Fixed null variable issue
  *
  * Version: 0.2.2
  * Added import of Custom and Counter value devices.

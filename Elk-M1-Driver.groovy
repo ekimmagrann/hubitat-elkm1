@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.3" }
+public static String version() { return "v0.2.4" }
 
 import groovy.transform.Field
 
@@ -1084,8 +1084,8 @@ List<Map> setStatus(int sysArea, String armStatus) {
 				String curmode = location.currentMode.name
 				String newmode = allmodes[idx].name
 				location.setMode(newmode)
-				//if (dbgEnable)
-				log.debug "${device.label}: Location Mode changed from $curmode to $newmode"
+				if (dbgEnable)
+					log.debug "${device.label}: Location Mode changed from $curmode to $newmode"
 			}
 		}
 		parent.setHSMArm(hsmSetArm, device.label + " was armed " + armMode)
@@ -1125,8 +1125,8 @@ List<Map> updateKeypadStatus(String keypadNumber, List<Map> keypadStatus) {
 	if (keypadDevice != null) {
 		if (keypadDevice.hasCapability("Actuator")) {
 			keypadDevice.parse(keypadStatus)
-		} else if (keypadStatus.size() > 0 && keypadStatus.First().name == "temperature") {
-			Map eventMap = keypadStatus.First()
+		} else if (keypadStatus.first().name == "temperature") {
+			Map eventMap = keypadStatus.first()
 			if (eventMap.descriptionText == null)
 				eventMap.descriptionText = keypadDevice.label + " " + eventMap.name + " was " + eventMap.value
 			else
@@ -1408,7 +1408,8 @@ List<Map> keypadKeyChangeUpdate(String message) {
 	for (i = 1; i <= 6; i++) {
 		statuses << [name: "f${i.toString()}LED", value: elkStates[message.substring(i + 7, i + 8)], type: "keypad"]
 	}
-	statusList += updateKeypadStatus(keypadNumber, statuses)
+	if (statuses.size() > 0)
+		statusList += updateKeypadStatus(keypadNumber, statuses)
 
 	byte[] chimes = message.substring(14, 23).getBytes()
 	for (i = 1; i <= 8; i++) {
@@ -2626,6 +2627,9 @@ def telnetStatus(String status) {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.2.4
+ * Fixed an issue with a keypad device that is a Virtual Temperature Probe.
  *
  * 0.2.3
  * Added Counter and Custom value device types.
