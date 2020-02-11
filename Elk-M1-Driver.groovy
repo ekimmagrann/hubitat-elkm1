@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.4" }
+public static String version() { return "v0.2.5" }
 
 import groovy.transform.Field
 
@@ -1151,6 +1151,10 @@ List<Map> userCodeEntered(String message) {
 		if (keypadDevice != null && keypadDevice.hasCapability("Actuator"))
 			keypadDevice.parse([userEvent])
 	} else {
+		if (userCode.substring(0, 1) == "0" && userCode.substring(2, 3) == "0" && userCode.substring(4, 5) == "0" &&
+				userCode.substring(6, 7) == "0" && userCode.substring(8, 9) == "0" && userCode.substring(10, 11) == "0")
+			userCode = userCode.substring(1, 2) + userCode.substring(3, 4) + userCode.substring(5, 6) +
+					userCode.substring(7, 8) + userCode.substring(9, 10) + userCode.substring(11, 12)
 		statusList = updateKeypadStatus(keypadNumber, [[name: "invalidUser", value: userCode, type: "keypad"]])
 	}
 	return statusList
@@ -1235,7 +1239,7 @@ def lightingDeviceChange(String message) {
 
 def logData(String message) {
 	if (message.substring(20, 23) == "000") {
-		String eventDesc = elkLogData[message.substring(4, 8)]
+		String eventDesc = elkLogData[message.substring(4, 8).toInteger()]
 		if (eventDesc != null) {
 			String sysArea = message.substring(11, 12)
 			if (sysArea == "0")
@@ -1493,7 +1497,7 @@ List<Map> updateSystemTrouble(String message) {
 	for (i = 0; i <= 33; i++) {
 		troubleCode = statuses[i] - 48
 		if (troubleCode || (state.trouble != null && state.trouble.findIndexOf { it == i } != -1)) {
-			troubleMessage = elkTroubleCodes[i.toString()]
+			troubleMessage = elkTroubleCodes[i]
 			if (troubleMessage != null) {
 				if (troubleMessage == BoxTamperTrouble || troubleMessage == TransmitterLowBatteryTrouble || troubleMessage == SecurityAlert ||
 						troubleMessage == LostTransmitterTrouble || troubleMessage == FireTrouble)
@@ -1511,11 +1515,11 @@ List<Map> updateSystemTrouble(String message) {
 	if (activeTrouble.size() > 0) {
 		state.trouble = activeTrouble
 		if (device.currentState("trouble")?.value == null || device.currentState("trouble").value != true)
-			statusList = [[name: "trouble", value: true, type: "system"]]
+			statusList = [[name: "trouble", value: On, type: "system"]]
 	} else {
 		state.remove("trouble")
 		if (device.currentState("trouble")?.value == null || device.currentState("trouble").value != false)
-			statusList = [[name: "trouble", value: false, type: "system"]]
+			statusList = [[name: "trouble", value: Off, type: "system"]]
 	}
 	return statusList
 }
@@ -1940,7 +1944,10 @@ HashMap registerReport(HashMap reportList, String deviceNetworkId, String device
 	if (reportList == null) {
 		reportList = [:]
 	}
-	reportList[deviceNumber] = deviceNetworkId
+	if (reportList[deviceNumber] == null)
+		reportList[deviceNumber] = [deviceNetworkId]
+	else
+		reportList[deviceNumber] << deviceNetworkId
 	return reportList
 }
 
@@ -1949,14 +1956,24 @@ HashMap unRegisterReport(HashMap reportList, String deviceNetworkId, String devi
 		reportList = [:]
 	} else if (deviceNumber == null) {
 		HashMap newreport = [:]
-		reportList.each {
-			if (it.value != deviceNetworkId) {
-				newreport[it.key] = value
+		reportList.each { fromDevice ->
+			if (!(fromDevice.value instanceof List))
+				fromDevice.value = [fromDevice.value]
+			fromDevice.value.each {
+				if (it != deviceNetworkId)
+					newreport = registerReport(newreport, it, fromDevice.key)
 			}
 		}
 		reportList = newreport
-	} else {
-		reportList -= [deviceNumber: deviceNetworkId]
+	} else if (reportList[deviceNumber] != null) {
+		List<String> toList = reportList[deviceNumber]
+		reportList.remove(deviceNumber)
+		if (deviceNetworkId != null) {
+			toList.each {
+				if (it != deviceNetworkId)
+					reportList = registerReport(reportList, it, deviceNumber)
+			}
+		}
 	}
 	if (reportList.size() == 0)
 		reportList = null
@@ -1964,13 +1981,15 @@ HashMap unRegisterReport(HashMap reportList, String deviceNetworkId, String devi
 }
 
 HashMap sendReport(HashMap reportList, zoneDevice, String deviceNumber, boolean violated) {
-	String reportDNID = reportList[deviceNumber]
-	if (reportDNID != null) {
-		def otherChild = getChildDevice(reportDNID)
-		if (otherChild != null && otherChild.hasCommand("report")) {
-			otherChild.report(zoneDevice.deviceNetworkId, violated)
-		} else {
-			reportList = unRegisterReport(reportList, reportDNID, deviceNumber)
+	List<String> toList = reportList[deviceNumber]
+	if (toList != null) {
+		toList.each {
+			def otherChild = getChildDevice(it)
+			if (otherChild != null && otherChild.hasCommand("report")) {
+				otherChild.report(zoneDevice.deviceNetworkId, violated)
+			} else {
+				reportList = unRegisterReport(reportList, it, deviceNumber)
+			}
 		}
 	}
 	return reportList
@@ -2628,6 +2647,12 @@ def telnetStatus(String status) {
  *
  * Release Notes (see Known Issues Below)
  *
+ * 0.2.5
+ * Fixed an issue log data and troubles not always showing.
+ * Changed trouble attribute from true/false to on/off.
+ * Changed invalidUser attribute to show 6 digit user code or 12 digit access credentials for prox cards/iButton.
+ * Removed limits with zone, output and task reporting only able to report to one child device.
+ *
  * 0.2.4
  * Fixed an issue with a keypad device that is a Virtual Temperature Probe.
  *
@@ -2854,6 +2879,5 @@ def telnetStatus(String status) {
  * I - Fan Circulate and set schedule not supported
  * F - Request text descriptions for zone setup, tasks and outputs (currently this must be done via the app)
  * I - A device with the same device network ID exists (this is really not an issue)
- * I - Zone, output and task reporting is limited to one report per child device
  *
  ***********************************************************************************************************************/
