@@ -22,7 +22,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.9" }
+public static String version() { return "v0.2.0" }
 
 import groovy.transform.Field
 
@@ -32,11 +32,12 @@ metadata {
 		capability "Thermostat"
 		capability "RelativeHumidityMeasurement"
 		capability "Refresh"
-		command "setThermostatHoldMode", [[name: "hold*", type: "ENUM", constraints: ["off", "on"]]]
+		command "setThermostatHoldMode", [[name: "hold*", type: "ENUM", constraints: elkThermostatHoldIn]]
 		command "setThermostatTemperature", [[name: "temperature*", description: "1 - 99", type: "NUMBER"]]
-		attribute "hold", "string"
+		attribute "hold", "enum", [Off, On]
 	}
 	preferences {
+		input name: "dbgEnable", type: "bool", title: "Enable debug logging", defaultValue: false
 		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
 	}
 }
@@ -54,15 +55,17 @@ def uninstalled() {
 def updated() {
 	log.info "Updated..."
 	log.warn "${device.label} description logging is: ${txtEnable == true}"
-	sendEvent(name: "supportedThermostatFanModes", value: elkThermostatFan.values(), descriptionText: "${device.label} supported Fan Modes")
-	sendEvent(name: "supportedThermostatModes", value: elkThermostatMode.values(), descriptionText: "${device.label} supported Modes")
+	sendEvent(name: "supportedThermostatFanModes", value: elkThermostatFanIn.values(), descriptionText: "${device.label} supported Fan Modes")
+	sendEvent(name: "supportedThermostatModes", value: elkThermostatModeIn.values(), descriptionText: "${device.label} supported Modes")
 }
 
 def parse(String description) {
+	if (dbgEnable)
+		log.debug device.label + " receiving thermostat message: " + description
 	String uom = description.substring(0, 2)
-	String mode = elkThermostatMode[description.substring(6, 7)]
-	String hold = elkThermostatHold[description.substring(7, 8)]
-	String fan = elkThermostatFan[description.substring(8, 9)]
+	String mode = elkThermostatModeIn[description.substring(6, 7)]
+	String hold = elkThermostatHoldIn[description.substring(7, 8)]
+	String fan = elkThermostatFanIn[description.substring(8, 9)]
 	String cTemp = description.substring(9, 11)
 	String hSet = description.substring(11, 13)
 	String cSet = description.substring(13, 15)
@@ -122,7 +125,7 @@ def parse(String description) {
 		}
 	} else {
 		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != " ") {
-			sendEvent(name: "thermostatSetpoint", value: " ")
+			sendEvent(name: "thermostatSetpoint", value: "0")
 		}
 	}
 }
@@ -133,76 +136,87 @@ def parse(List description) {
 }
 
 def auto() {
-	parent.sendMsg(parent.setThermostatMode(Auto, getThermID()))
+	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[Auto])
 }
 
 def cool() {
-	parent.sendMsg(parent.setThermostatMode(Cool, getThermID()))
+	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[Cool])
 }
 
 def emergencyHeat() {
-	parent.sendMsg(parent.setThermostatMode(EmergencyHeat, getThermID()))
+	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[EmergencyHeat])
 }
 
 def fanAuto() {
-	parent.sendMsg(parent.setThermostatFanMode(Auto, getThermID()))
+	setThermostatData(elkThermostatCommands["Fan"], elkThermostatFanOut[Auto])
 }
 
 def fanCirculate() {
-	parent.sendMsg(parent.setThermostatFanMode(Circulate, getThermID()))
+	setThermostatData(elkThermostatCommands["Fan"], elkThermostatFanOut[Circulate])
 }
 
 def fanOn() {
-	parent.sendMsg(parent.setThermostatFanMode(On, getThermID()))
+	setThermostatData(elkThermostatCommands["Fan"], elkThermostatFanOut[On])
 }
 
 def heat() {
-	parent.sendMsg(parent.setThermostatMode(Heat, getThermID()))
+	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[Heat])
 }
 
 def off() {
-	parent.sendMsg(parent.setThermostatMode(Off, getThermID()))
+	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[Off])
 }
 
 def setCoolingSetpoint(BigDecimal degrees) {
-	parent.sendMsg(parent.setCoolingSetpoint(degrees, getThermID()))
+	setThermostatData(elkThermostatCommands["CoolSetPoint"], degrees)
 }
 
 def setHeatingSetpoint(BigDecimal degrees) {
-	parent.sendMsg(parent.setHeatingSetpoint(degrees, getThermID()))
+	setThermostatData(elkThermostatCommands["HeatSetPoint"], degrees)
 }
 
 def setSchedule(schedule) {
+	log.warn device.label + " setSchedule is not supported."
 }
 
 def setThermostatFanMode(String fanmode) {
-	parent.sendMsg(parent.setThermostatFanMode(fanmode, getThermID()))
+	setThermostatData(elkThermostatCommands["Fan"], elkThermostatFanOut[fanmode])
 }
 
 def setThermostatHoldMode(String holdmode) {
-	parent.sendMsg(parent.setThermostatHoldMode(holdmode, getThermID()))
+	setThermostatData(elkThermostatCommands["Hold"], elkThermostatHoldOut[holdmode])
 }
 
 def setThermostatMode(String thermostatmode) {
-	parent.sendMsg(parent.setThermostatMode(thermostatmode, getThermID()))
+	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[thermostatmode])
 }
 
 def setThermostatTemperature(BigDecimal degrees) {
-	parent.sendMsg(parent.setThermostatTemperature(degrees, getThermID()))
+	setThermostatData(elkThermostatCommands["CurrentTemp"], degrees)
+}
+
+def setThermostatData(String command, BigDecimal value) {
+	setThermostatData(command, String.format("%02d", value.intValue()))
+}
+
+def setThermostatData(String command, String value) {
+	String cmd = "ts" + getThermID() + value + command
+	if (dbgEnable)
+		log.debug device.label + " sending setThermostatData command: " + cmd
+	parent.sendMsg(cmd)
 }
 
 def refresh() {
-	parent.sendMsg(parent.refreshThermostatStatus(getThermID()))
+	String cmd = "tr" + getThermID()
+	if (dbgEnable)
+		log.debug device.label + " sending refresh command: " + cmd
+	parent.sendMsg(cmd)
 }
 
 String getThermID() {
 	String DNID = device.deviceNetworkId
 	return DNID.substring(DNID.length() - 2).take(2)
 }
-
-@Field final Map elkThermostatMode = ['0': Off, '1': Heat, '2': Cool, '3': Auto, '4': EmergencyHeat]
-@Field final Map elkThermostatHold = ['0': Off, '1': On]
-@Field final Map elkThermostatFan = ['0': Auto, '1': On]
 
 @Field static final String On = "on"
 @Field static final String Off = "off"
@@ -214,42 +228,54 @@ String getThermID() {
 @Field static final String FanAuto = "fan auto"
 @Field static final String FanOn = "fan on"
 
+@Field final Map elkThermostatCommands = ["Mode": "0", "Hold": "1", "Fan": "2", "CurrentTemp": "3", "CoolSetPoint": "4", "HeatSetPoint": "5"]
+@Field final Map elkThermostatModeIn = ['0': Off, '1': Heat, '2': Cool, '3': Auto, '4': EmergencyHeat]
+@Field final Map elkThermostatHoldIn = ['0': Off, '1': On]
+@Field final Map elkThermostatFanIn = ['0': Auto, '1': On]
+@Field final Map elkThermostatModeOut = ["off": "00", "heat": "01", "cool": "02", "auto": "03", "emergency heat": "04"]
+@Field final Map elkThermostatHoldOut = ["off": "00", "on": "01"]
+@Field final Map elkThermostatFanOut = ["auto": "00", "on": "01", "circulate": "00"]
+
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
  *
+ * 0.2.0
+ * Added debug logging.
+ * Relocated Elk thermostat commands from parent driver to here.
+ *
  * 0.1.9
  * Added commands setThermostatHoldMode & setThermostatTemperature and attributes supportedThermostatFanModes and
- *     supportedThermostatModes
+ *     supportedThermostatModes.
  *
  * 0.1.8
- * Added descriptionText to thermostat events
+ * Added descriptionText to thermostat events.
  *
  * 0.1.7
- * Fixed issue with all commands not working
- * Added humidity and hold
- * Changed logging and events to only occur when state changes
+ * Fixed issue with all commands not working.
+ * Added humidity and hold.
+ * Changed logging and events to only occur when state changes.
  *
  * 0.1.6
- * Added Refresh Command
- * Added info logging
- * Simplified calls to parent driver
+ * Added Refresh Command.
+ * Added info logging.
+ * Simplified calls to parent driver.
  *
  * 0.1.5
- * Strongly typed variables for performance
+ * Strongly typed variables for performance.
  *
  * 0.1.4
- * Rewrote code to use parent telnet
+ * Rewrote code to use parent telnet.
  *
  * 0.1.3
- * No longer requires a 6 digit code - Add leading zeroes to 4 digit codes
- * Code clean up
+ * No longer requires a 6 digit code - Add leading zeroes to 4 digit codes.
+ * Code clean up.
  *
  * 0.1.2
- * Code clean up
+ * Code clean up.
  *
  * 0.1.1
- * New child driver to support thermostats
+ * New child driver to support thermostats.
  *
  ***********************************************************************************************************************/
 /***********************************************************************************************************************
