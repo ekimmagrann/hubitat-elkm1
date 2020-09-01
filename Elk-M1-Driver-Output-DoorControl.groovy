@@ -17,12 +17,12 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.5" }
+public static String version() { return "v0.1.6" }
 
 metadata {
 	definition(name: "Elk M1 Driver Output-DoorControl", namespace: "captncode", author: "captncode") {
 		capability "Actuator"
-		capability "DoorControl"
+		capability "GarageDoorControl"
 		capability "Momentary"
 		command "report", ["bool", "string"]
 		command "refresh"
@@ -119,6 +119,9 @@ def refresh() {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.6
+ * Changed DoorControl capability to GarageDoorControl for compatibility with the Amazon Echo skill
  *
  * 0.1.5
  * Enhanced open and closed events to for reliability
