@@ -26,7 +26,7 @@ metadata {
 								  [name: "minutes*", description: "0 - 59", type: "NUMBER"]]
 		command "setCustomValue", [[name: "value*", description: "0 - 65535", type: "NUMBER"]]
 		attribute "custom", "string"
-		attribute "format", "string"
+		attribute "format", "enum", ["number", "time of day", "timer"]
 	}
 	preferences {
 		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
