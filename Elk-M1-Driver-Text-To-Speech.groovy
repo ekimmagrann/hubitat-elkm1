@@ -21,12 +21,13 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 import groovy.transform.Field
 
 metadata {
 	definition(name: "Elk M1 Driver Text To Speech", namespace: "captncode", author: "captncode") {
+		capability "Actuator"
 		capability "SpeechSynthesis"
 	}
 	preferences {
@@ -34,35 +35,33 @@ metadata {
 	}
 }
 
-def updated() {
-	log.info "Updated..."
+void updated() {
+	log.warn device.label + " Updated..."
 	log.warn "${device.label} description logging is: ${txtEnable == true}"
 }
 
-def installed() {
-	"Installed..."
+void installed() {
+	log.warn device.label + " Installed..."
 	device.updateSetting("txtEnable", [type: "bool", value: true])
-	refresh()
 }
 
-def uninstalled() {
+void uninstalled() {
 }
 
-
-def parse(String description) {
-	log.warn "parse(String description) received ${description}"
+void parse(String description) {
+	log.warn device.label + " parse(String description) received ${description}"
 }
 
-def parse(List description) {
-	log.warn "parse(List description) received ${description}"
+void parse(List description) {
+	log.warn device.label + " parse(List description) received ${description}"
 }
 
-def speak(String text) {
+void speak(String text) {
 	String sentence = ""
 	String word
 	int code, major
 	BigDecimal testNbr
-	Boolean isNumber, isPhrase
+	boolean isNumber, isPhrase
 	// Preparse text for special characters, numbers and temperatures
 	text.replace("˚F", " degrees ").replace("˚C", " degrees ").replace("˚", " degrees ").replaceAll(/[^\w. ]+/, " ").split(" ").each {
 		word = it.trim()
@@ -104,7 +103,7 @@ def speak(String text) {
 			// Speak what it can
 			if (isNumber) {
 				if (code < 0) {
-					parent.speakWord(elkWords["rear"]) // Best word I could find to denote negative
+					parent.speakWord(elkWords["low"]) // Best word I could find to denote negative
 					code = 0 - code
 				}
 				if (code > 999) {
@@ -135,9 +134,9 @@ def speak(String text) {
 	}
 }
 
-def speakNumber(int number) {
+void speakNumber(int number) {
 	int digit
-	Boolean hasHundred = false
+	boolean hasHundred = false
 	if (number > 99) {
 		digit = number / 100
 		parent.speakWord(elkWords[digit.toString()])
@@ -156,9 +155,6 @@ def speakNumber(int number) {
 		if (digit > 0)
 			parent.speakWord(elkWords[digit.toString()])
 	}
-}
-
-def refresh() {
 }
 
 @Field final Map elkWords = [
@@ -658,6 +654,9 @@ def refresh() {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.1
+ * Strongly typed commands
  *
  * 0.1.0
  * New child driver for Elk M1 Text To Speech
