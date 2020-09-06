@@ -16,7 +16,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 metadata {
 	definition(name: "Elk M1 Driver Counter", namespace: "captncode", author: "captncode") {
@@ -30,18 +30,22 @@ metadata {
 	}
 }
 
-def updated() {
-	log.info "Updated..."
-	log.warn "${device.label} description logging is: ${txtEnable == true}"
+void updated() {
+	log.warn device.label + " Updated..."
+	log.warn "${device.label} description logging is ${txtEnable}"
 }
 
-def installed() {
-	"Installed..."
+hubitat.device.HubAction installed() {
+	log.warn device.label + " Installed..."
 	device.updateSetting("txtEnable", [type: "bool", value: true])
 	refresh()
 }
 
-def uninstalled() {
+void uninstalled() {
+}
+
+hubitat.device.HubAction refresh() {
+	parent.sendMsg(parent.refreshCounterValue(getUnitCode()))
 }
 
 int getUnitCode() {
@@ -49,7 +53,7 @@ int getUnitCode() {
 	return DNID.substring(DNID.length() - 2).take(2).toInteger()
 }
 
-def parse(String description) {
+void parse(String description) {
 	int value = description.toInteger()
 	if (device.currentState("counter")?.value == null || device.currentState("counter").value.toInteger() != value) {
 		String descriptionText = "${device.label} is ${value}"
@@ -59,22 +63,20 @@ def parse(String description) {
 	}
 }
 
-def parse(List description) {
-	log.warn "parse(List description) received ${description}"
-	return
+void parse(List description) {
+	log.warn device.label + " parse(List description) received ${description}"
 }
 
-def setCounterValue(BigDecimal value) {
+hubitat.device.HubAction setCounterValue(BigDecimal value) {
 	parent.sendMsg(parent.setCounterValue(getUnitCode(), value))
-}
-
-def refresh() {
-	parent.sendMsg(parent.refreshCounterValue(getUnitCode()))
 }
 
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.1
+ * Strongly typed commands
  *
  * 0.1.0
  * New child driver to Elk M1 Counter

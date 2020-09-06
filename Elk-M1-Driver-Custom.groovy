@@ -16,7 +16,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.1.1" }
 
 metadata {
 	definition(name: "Elk M1 Driver Custom", namespace: "captncode", author: "captncode") {
@@ -33,18 +33,22 @@ metadata {
 	}
 }
 
-def updated() {
-	log.info "Updated..."
-	log.warn "${device.label} description logging is: ${txtEnable == true}"
+void updated() {
+	log.warn device.label + " Updated..."
+	log.warn "${device.label} description logging is ${txtEnable}"
 }
 
-def installed() {
-	"Installed..."
+hubitat.device.HubAction installed() {
+	log.warn device.label + " Installed..."
 	device.updateSetting("txtEnable", [type: "bool", value: true])
 	refresh()
 }
 
-def uninstalled() {
+void uninstalled() {
+}
+
+hubitat.device.HubAction refresh() {
+	parent.sendMsg(parent.refreshCustomValue(getUnitCode()))
 }
 
 int getUnitCode() {
@@ -52,7 +56,7 @@ int getUnitCode() {
 	return DNID.substring(DNID.length() - 2).take(2).toInteger()
 }
 
-def parse(Map description) {
+void parse(Map description) {
 	int value = description.value
 	String format = description.format
 	String valueStr = value.toString()
@@ -72,16 +76,20 @@ def parse(Map description) {
 		if (txtEnable)
 			log.info descriptionText
 		sendEvent(name: "custom", value: valueStr, descriptionText: descriptionText)
-		sendEvent(name: "format", value: format, descriptionText: "${device.label} format is ${format}")
+	}
+	if (device.currentState("format")?.value == null || device.currentState("format").value != format) {
+		String descriptionText = "${device.label} format is ${format}"
+		if (txtEnable)
+			log.info descriptionText
+		sendEvent(name: "format", value: format, descriptionText: descriptionText)
 	}
 }
 
-def parse(List description) {
-	log.warn "parse(List description) received ${description}"
-	return
+void parse(List description) {
+	log.warn device.label + " parse(List description) received ${description}"
 }
 
-def setCustomTime(BigDecimal hours, BigDecimal minutes) {
+hubitat.device.HubAction setCustomTime(BigDecimal hours, BigDecimal minutes) {
 	if (device.currentState("format")?.value == null || device.currentState("format").value == "time of day") {
 		parent.sendMsg(parent.setCustomTime(getUnitCode(), hours, minutes))
 	} else {
@@ -89,7 +97,7 @@ def setCustomTime(BigDecimal hours, BigDecimal minutes) {
 	}
 }
 
-def setCustomValue(BigDecimal value) {
+hubitat.device.HubAction setCustomValue(BigDecimal value) {
 	if (device.currentState("format")?.value == null || device.currentState("format").value != "time of day") {
 		parent.sendMsg(parent.setCustomValue(getUnitCode(), value))
 	} else {
@@ -97,13 +105,13 @@ def setCustomValue(BigDecimal value) {
 	}
 }
 
-def refresh() {
-	parent.sendMsg(parent.refreshCustomValue(getUnitCode()))
-}
-
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.1
+ * Strongly typed commands
+ * Changed format to ENUM so the values can be selected in the rules engine.
  *
  * 0.1.0
  * New child driver to Elk M1 Custom
