@@ -19,7 +19,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.0" }
+public static String version() { return "v0.2.1" }
 
 metadata {
 	definition(name: "Elk M1 Driver Tasks", namespace: "belk", author: "Mike Magrann") {
@@ -32,49 +32,51 @@ metadata {
 	}
 }
 
-def updated() {
-	log.info "Updated..."
-	log.warn "${device.label} description logging is: ${txtEnable == true}"
+void updated() {
+	log.warn "${device.label} Updated..."
+	log.warn "${device.label} description logging is: ${txtEnable}"
 	sendEvent(name: "numberOfButtons", value: 1)
 }
 
-def installed() {
-	"Installed..."
+void installed() {
+	log.warn "${device.label} Installed..."
 	device.updateSetting("txtEnable", [type: "bool", value: true])
-	refresh()
+	clear()
 }
 
-def uninstalled() {
+void uninstalled() {
 }
 
-def parse(String description = null) {
+void parse(String description = null) {
 	if (description != "off") {
 		String descriptionText = "${device.label} was activated"
 		if (txtEnable)
 			log.info descriptionText
-		sendEvent(name: "pushed", value: 1, descriptionText: descriptionText)
+		sendEvent(name: "pushed", value: 1, descriptionText: descriptionText, isStateChange: true)
 		runIn(3, clear)
 	}
 }
 
-def parse(List description) {
-	log.warn "parse(List description) received ${description}"
-	return
+void parse(List description) {
+	log.warn "${device.label} parse(List description) received ${description}"
 }
 
-def push() {
+hubitat.device.HubAction push() {
 	String task = device.deviceNetworkId
 	task = task.substring(task.length() - 3).take(3)
 	parent.sendMsg(parent.TaskActivation(task.toInteger()))
 }
 
-def clear() {
+void clear() {
 	sendEvent(name: "pushed", value: 0, isStateChange: false)
 }
 
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.2.1
+ * Strongly typed commands
  *
  * 0.2.0
  * Change to a PushableButton

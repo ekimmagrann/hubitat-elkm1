@@ -19,7 +19,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.1.8" }
+public static String version() { return "v0.1.9" }
 
 metadata {
 	definition(name: "Elk M1 Driver Outputs", namespace: "belk", author: "Mike Magrann") {
@@ -33,21 +33,21 @@ metadata {
 	}
 }
 
-def updated() {
-	log.info "Updated..."
-	log.warn "${device.label} description logging is: ${txtEnable == true}"
+void updated() {
+	log.warn "${device.label} Updated..."
+	log.warn "${device.label} description logging is: ${txtEnable}"
 }
 
-def installed() {
-	"Installed..."
+hubitat.device.HubAction installed() {
+	log.warn "${device.label} Installed..."
 	device.updateSetting("txtEnable", [type: "bool", value: true])
 	refresh()
 }
 
-def uninstalled() {
+void uninstalled() {
 }
 
-def parse(String description) {
+void parse(String description) {
 	if (device.currentState("switch")?.value == null || device.currentState("switch").value != description) {
 		String descriptionText = "${device.label} is ${description}"
 		if (txtEnable)
@@ -56,34 +56,36 @@ def parse(String description) {
 	}
 }
 
-def parse(List description) {
-	log.warn "parse(List description) received ${description}"
-	return
+void parse(List description) {
+	log.warn "${device.label} parse(List description) received ${description}"
 }
 
-def push(String duration = "1") {
+hubitat.device.HubAction push(String duration = "1") {
 	on(duration)
 }
 
-def on(String duration = "0") {
+hubitat.device.HubAction on(String duration = "0") {
 	String output = device.deviceNetworkId
 	output = output.substring(output.length() - 3).take(3)
 	parent.sendMsg(parent.ControlOutputOn(output.toInteger(), duration))
 }
 
-def off() {
+hubitat.device.HubAction off() {
 	String output = device.deviceNetworkId
 	output = output.substring(output.length() - 3).take(3)
 	parent.sendMsg(parent.ControlOutputOff(output.toInteger()))
 }
 
-def refresh() {
+hubitat.device.HubAction refresh() {
 	parent.refreshOutputStatus()
 }
 
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.1.9
+ * Strongly typed commands
  *
  * 0.1.8
  * Added descriptionText to switch events

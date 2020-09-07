@@ -55,7 +55,7 @@ int getUnitCode() {
 
 void parse(String description) {
 	int value = description.toInteger()
-	if (device.currentState("counter")?.value == null || device.currentState("counter").value.toInteger() != value) {
+	if (device.currentState("counter")?.value == null || device.currentState("counter").getNumberValue() != value) {
 		String descriptionText = "${device.label} is ${value}"
 		if (txtEnable)
 			log.info descriptionText
