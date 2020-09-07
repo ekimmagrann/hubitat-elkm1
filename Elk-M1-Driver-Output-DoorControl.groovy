@@ -30,40 +30,39 @@ metadata {
 	preferences {
 		input name: "transitionTime", type: "enum", title: "Transition time", required: true,
 				options: [[5: "5 seconds"], [15: "15 seconds"], [30: "30 seconds"], [90: "90 seconds"]]
-		input "zoneNumber", "number", title: "Door contact zone 1-208", required: true, range: "1..208"
+		input name: "zoneNumber", type: "number", title: "Door contact zone 1-208", required: true, range: "1..208"
 		input name: "txtEnable", type: "bool", title: "Enable descriptionText logging", defaultValue: true
 	}
 }
 
-def updated() {
-	log.info "Updated..."
-	log.warn "${device.label} description logging is: ${txtEnable == true}"
+void updated() {
+	log.warn "${device.label} Updated..."
+	log.warn "${device.label} description logging is: ${txtEnable}"
 	log.warn "${device.label} door contact zone is: ${zoneNumber}"
 	parent.unRegisterZoneReport(device.deviceNetworkId)
 	parent.registerZoneReport(device.deviceNetworkId, String.format("%03d", zoneNumber.intValue()))
 }
 
-def installed() {
-	"Installed..."
+hubitat.device.HubAction installed() {
+	log.warn "${device.label} Installed..."
 	device.updateSetting("txtEnable", [type: "bool", value: true])
 	refresh()
 }
 
-def uninstalled() {
+void uninstalled() {
 	parent.unRegisterZoneReport(device.deviceNetworkId)
 }
 
-def parse(String description) {
+void parse(String description) {
 	if (txtEnable && description == "on")
 		log.info "${device.label} was pushed"
 }
 
-def parse(List description) {
-	log.warn "parse(List description) received ${description}"
-	return
+void parse(List description) {
+	log.warn "${device.label} parse(List description) received ${description}"
 }
 
-def report(String deviceDNID, boolean violated) {
+void report(String deviceDNID, boolean violated) {
 	state.contactOpen = violated
 	if (violated) {
 		setStatus("opening")
@@ -73,7 +72,7 @@ def report(String deviceDNID, boolean violated) {
 	}
 }
 
-def setStatus(String status) {
+void setStatus(String status) {
 	if (status == "open" && state.contactOpen != null && !state.contactOpen) {
 		status = "closed"
 	} else if (status == "open") {
@@ -90,7 +89,7 @@ def setStatus(String status) {
 	}
 }
 
-def push() {
+hubitat.device.HubAction push() {
 	String output = device.deviceNetworkId
 	output = output.substring(output.length() - 3).take(3)
 	parent.sendMsg(parent.ControlOutputOn(output.toInteger(), '00001'))
@@ -100,19 +99,19 @@ def push() {
 		setStatus("opening")
 }
 
-def close() {
+hubitat.device.HubAction close() {
 	if (state.open == null || state.open) {
 		push()
 	}
 }
 
-def open() {
+hubitat.device.HubAction open() {
 	if (state.open == null || !state.open) {
 		push()
 	}
 }
 
-def refresh() {
+hubitat.device.HubAction refresh() {
 	parent.refreshZoneStatus()
 }
 
@@ -122,6 +121,7 @@ def refresh() {
  *
  * 0.1.6
  * Changed DoorControl capability to GarageDoorControl for compatibility with the Amazon Echo skill
+ * Strongly typed commands
  *
  * 0.1.5
  * Enhanced open and closed events to for reliability
