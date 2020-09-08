@@ -42,48 +42,57 @@ metadata {
 	}
 }
 
-def installed() {
-	"Installed..."
+hubitat.device.HubAction installed() {
+	log.warn device.label + " Installed..."
 	device.updateSetting("txtEnable", [type: "bool", value: true])
 	updated()
 	refresh()
 }
 
-def uninstalled() {
+void uninstalled() {
 }
 
-def updated() {
-	log.info "Updated..."
-	log.warn "${device.label} description logging is: ${txtEnable == true}"
-	sendEvent(name: "supportedThermostatFanModes", value: elkThermostatFanIn.values(), descriptionText: "${device.label} supported Fan Modes")
-	sendEvent(name: "supportedThermostatModes", value: elkThermostatModeIn.values(), descriptionText: "${device.label} supported Modes")
+void updated() {
+	log.warn device.label + " Updated..."
+	log.warn "${device.label} description logging is ${txtEnable}"
+	sendEvent(name: "supportedThermostatFanModes", value: elkThermostatFanIn.values(),
+			descriptionText: "${device.label} supported Fan Modes")
+	sendEvent(name: "supportedThermostatModes", value: elkThermostatModeIn.values(),
+			descriptionText: "${device.label} supported Modes")
 }
 
-def parse(String description) {
+hubitat.device.HubAction refresh() {
+	String cmd = "tr" + getThermID()
+	if (dbgEnable)
+		log.debug device.label + " sending refresh command: " + cmd
+	parent.sendMsg(cmd)
+}
+
+void parse(String description) {
 	if (dbgEnable)
 		log.debug device.label + " receiving thermostat message: " + description
 	String uom = description.substring(0, 2)
 	String mode = elkThermostatModeIn[description.substring(6, 7)]
 	String hold = elkThermostatHoldIn[description.substring(7, 8)]
 	String fan = elkThermostatFanIn[description.substring(8, 9)]
-	String cTemp = description.substring(9, 11)
-	String hSet = description.substring(11, 13)
-	String cSet = description.substring(13, 15)
-	String cHumid = description.substring(15, 17)
+	int cTemp = description.substring(9, 11).toInteger()
+	int hSet = description.substring(11, 13).toInteger()
+	int cSet = description.substring(13, 15).toInteger()
+	int cHumid = description.substring(15, 17).toInteger()
 	String descriptionText
-	if (device.currentState("coolingSetpoint")?.value == null || device.currentState("coolingSetpoint").value != cSet) {
+	if (cSet > 0 && (device.currentState("coolingSetpoint")?.value == null || device.currentState("coolingSetpoint").getNumberValue() != cSet)) {
 		descriptionText = "${device.label} coolingSetpoint is ${cSet}${uom}"
 		if (txtEnable)
 			log.info descriptionText
 		sendEvent(name: "coolingSetpoint", value: cSet, unit: uom, descriptionText: descriptionText)
 	}
-	if (device.currentState("heatingSetpoint")?.value == null || device.currentState("heatingSetpoint").value != hSet) {
+	if (hSet > 0 && (device.currentState("heatingSetpoint")?.value == null || device.currentState("heatingSetpoint").getNumberValue() != hSet)) {
 		descriptionText = "${device.label} heatingSetpoint is ${hSet}${uom}"
 		if (txtEnable)
 			log.info descriptionText
 		sendEvent(name: "heatingSetpoint", value: hSet, unit: uom, descriptionText: descriptionText)
 	}
-	if (cHumid != "00" && (device.currentState("humidity")?.value == null || device.currentState("humidity").value != cHumid)) {
+	if (cHumid > 0 && (device.currentState("humidity")?.value == null || device.currentState("humidity").getNumberValue() != cHumid)) {
 		descriptionText = "${device.label} humidity is ${cHumid}%"
 		if (txtEnable)
 			log.info descriptionText
@@ -95,7 +104,7 @@ def parse(String description) {
 			log.info descriptionText
 		sendEvent(name: "hold", value: hold, descriptionText: descriptionText)
 	}
-	if (device.currentState("temperature")?.value == null || device.currentState("temperature").value != cTemp) {
+	if (cTemp > 0 && (device.currentState("temperature")?.value == null || device.currentState("temperature").getNumberValue() != cTemp)) {
 		descriptionText = "${device.label} temperature is ${cTemp}${uom}"
 		if (txtEnable)
 			log.info descriptionText
@@ -114,102 +123,96 @@ def parse(String description) {
 		sendEvent(name: "thermostatMode", value: mode, descriptionText: descriptionText)
 	}
 	if (mode == Heat || mode == EmergencyHeat) {
-		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != hSet) {
+		if (hSet > 0 && (device.currentState("thermostatSetpoint")?.value == null ||
+				device.currentState("thermostatSetpoint").getNumberValue() != hSet)) {
 			descriptionText = "${device.label} thermostatSetpoint is ${hSet}${uom}"
 			sendEvent(name: "thermostatSetpoint", value: hSet, unit: uom, descriptionText: descriptionText)
 		}
 	} else if (mode == Cool) {
-		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != cSet) {
+		if (cSet > 0 && (device.currentState("thermostatSetpoint")?.value == null ||
+				device.currentState("thermostatSetpoint").getNumberValue() != cSet)) {
 			descriptionText = "${device.label} thermostatSetpoint is ${cSet}${uom}"
 			sendEvent(name: "thermostatSetpoint", value: cSet, unit: uom, descriptionText: descriptionText)
 		}
 	} else {
-		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").value != " ") {
-			sendEvent(name: "thermostatSetpoint", value: "0")
+		if (device.currentState("thermostatSetpoint")?.value == null || device.currentState("thermostatSetpoint").getNumberValue() != 0) {
+			sendEvent(name: "thermostatSetpoint", value: 0)
 		}
 	}
 }
 
-def parse(List description) {
-	log.warn "parse(List description) received ${description}"
-	return
+void parse(List description) {
+	log.warn device.label + " parse(List description) received ${description}"
 }
 
-def auto() {
+hubitat.device.HubAction auto() {
 	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[Auto])
 }
 
-def cool() {
+hubitat.device.HubAction cool() {
 	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[Cool])
 }
 
-def emergencyHeat() {
+hubitat.device.HubAction emergencyHeat() {
 	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[EmergencyHeat])
 }
 
-def fanAuto() {
+hubitat.device.HubAction fanAuto() {
 	setThermostatData(elkThermostatCommands["Fan"], elkThermostatFanOut[Auto])
 }
 
-def fanCirculate() {
+hubitat.device.HubAction fanCirculate() {
 	setThermostatData(elkThermostatCommands["Fan"], elkThermostatFanOut[Circulate])
 }
 
-def fanOn() {
+hubitat.device.HubAction fanOn() {
 	setThermostatData(elkThermostatCommands["Fan"], elkThermostatFanOut[On])
 }
 
-def heat() {
+hubitat.device.HubAction heat() {
 	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[Heat])
 }
 
-def off() {
+hubitat.device.HubAction off() {
 	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[Off])
 }
 
-def setCoolingSetpoint(BigDecimal degrees) {
+hubitat.device.HubAction setCoolingSetpoint(BigDecimal degrees) {
 	setThermostatData(elkThermostatCommands["CoolSetPoint"], degrees)
 }
 
-def setHeatingSetpoint(BigDecimal degrees) {
+hubitat.device.HubAction setHeatingSetpoint(BigDecimal degrees) {
 	setThermostatData(elkThermostatCommands["HeatSetPoint"], degrees)
 }
 
-def setSchedule(schedule) {
+void setSchedule(schedule) {
 	log.warn device.label + " setSchedule is not supported."
 }
 
-def setThermostatFanMode(String fanmode) {
+hubitat.device.HubAction setThermostatFanMode(String fanmode) {
 	setThermostatData(elkThermostatCommands["Fan"], elkThermostatFanOut[fanmode])
 }
 
-def setThermostatHoldMode(String holdmode) {
+hubitat.device.HubAction setThermostatHoldMode(String holdmode) {
 	setThermostatData(elkThermostatCommands["Hold"], elkThermostatHoldOut[holdmode])
 }
 
-def setThermostatMode(String thermostatmode) {
+hubitat.device.HubAction setThermostatMode(String thermostatmode) {
 	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[thermostatmode])
 }
 
-def setThermostatTemperature(BigDecimal degrees) {
+hubitat.device.HubAction setThermostatTemperature(BigDecimal degrees) {
 	setThermostatData(elkThermostatCommands["CurrentTemp"], degrees)
 }
 
-def setThermostatData(String command, BigDecimal value) {
+hubitat.device.HubAction setThermostatData(String command, BigDecimal value) {
 	setThermostatData(command, String.format("%02d", value.intValue()))
 }
 
-def setThermostatData(String command, String value) {
+hubitat.device.HubAction setThermostatData(String command, String value) {
 	String cmd = "ts" + getThermID() + value + command
 	if (dbgEnable)
 		log.debug device.label + " sending setThermostatData command: " + cmd
-	parent.sendMsg(cmd)
-}
-
-def refresh() {
-	String cmd = "tr" + getThermID()
-	if (dbgEnable)
-		log.debug device.label + " sending refresh command: " + cmd
 	parent.sendMsg(cmd)
 }
 
@@ -228,7 +231,8 @@ String getThermID() {
 @Field static final String FanAuto = "fan auto"
 @Field static final String FanOn = "fan on"
 
-@Field final Map elkThermostatCommands = ["Mode": "0", "Hold": "1", "Fan": "2", "CurrentTemp": "3", "CoolSetPoint": "4", "HeatSetPoint": "5"]
+@Field final Map elkThermostatCommands = ["Mode"        : "0", "Hold": "1", "Fan": "2", "CurrentTemp": "3", "CoolSetPoint": "4",
+										  "HeatSetPoint": "5"]
 @Field final Map elkThermostatModeIn = ['0': Off, '1': Heat, '2': Cool, '3': Auto, '4': EmergencyHeat]
 @Field final Map elkThermostatHoldIn = ['0': Off, '1': On]
 @Field final Map elkThermostatFanIn = ['0': Auto, '1': On]
@@ -243,6 +247,7 @@ String getThermID() {
  * 0.2.0
  * Added debug logging.
  * Relocated Elk thermostat commands from parent driver to here.
+ * Strongly typed commands.
  *
  * 0.1.9
  * Added commands setThermostatHoldMode & setThermostatTemperature and attributes supportedThermostatFanModes and
