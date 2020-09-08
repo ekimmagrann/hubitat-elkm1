@@ -2,13 +2,21 @@
 Hubitat and Elk M1 integration via Elk M1XEP or C1M1
 
 **Important**: If you are upgrading from drivers created by @ekimmagrann, you will need to replace all existing 
-application and device drivers with these new ones.  If you are upgrading from Elk M1 Driver with a version less than 
-Version 0.2.0, you will need to replace the application code, the Elk M1 Driver and the Elk M1 Driver Task with the 
-new ones.  Other drivers may be updated or added as desired.
+application and device drivers with these new ones.  If you are upgrading from an Elk M1 Driver with a version less than 
+Version 0.2.6, you will need to replace the Elk M1 Application driver, the Elk M1 Driver, Elk M1 Driver Keypad and
+Elk M1 Driver Thermostat with the new ones if you are using them.  If you are coming from a version before 0.2.0,
+you will also need to replace the Elk M1 Driver Output and Elk M1 Driver Task drivers as well.  Other drivers may 
+be updated or added as desired.
 
 In any case upon updating the main Elk M1 Driver, you will then need to open the main Elk M1 device, update the settings
 as desired under 'Preferences' 
 and click 'Save Preferences'.
+
+HSM and Location Mode integration was moved to the application in Elk M1 Driver 0.2.6.  If those are desired, they will
+have to be configured within the app.
+
+If you also updated the Application driver, you will then need to open the Elk M1 Application to perform some automatic
+cleanup. If you had previous integrations with physical devices, you may need to add those integrations back in.  
 
 New Installation Process:
 
@@ -19,6 +27,9 @@ Copy the **Elk M1 Driver** code from GitHub into a 'New Driver' under the 'Drive
 Copy the **Elk M1 Driver Output** code from GitHub into a 'New Driver' under the 'Drivers Code' menu then click 'Save'
 
 Copy the **Elk M1 Driver Task** code from GitHub into a 'New Driver' under the 'Drivers Code' menu then click 'Save'
+
+If you plan in using Thermostats either directly attached to the Elk M1 or attached to the Hubitat but controlled by the 
+Elk M1, then you will need the following driver:
 
 Copy the **Elk M1 Driver Thermostat** code from GitHub into a 'New Driver' under the 'Drivers Code' menu then click 'Save'
 
@@ -58,15 +69,15 @@ Optionally, you may add the following and change your child device driver after 
 
 After the app and all desired drivers are loaded into Hubitat Elevation, Go to 'Apps'
 
-Click 'Load New Apps'
+Click 'Add User App'
 
-Select 'Elk M1 Application' under 'User Apps'
+Select 'Elk M1 Application'.  Search for it if necessary.
 
 Enter your information into the settings fields
 
 Click Next
 
-You may begin mapping your individual zones
+You may begin mapping your individual devices.
 
 Click Next
 
@@ -83,3 +94,8 @@ Click 'Save Preferences'
 You may now change the driver type on your child devices as desired.
 
 Enjoy your Elk M1 Integration! 
+
+**One final note:** I have a prototype Hubitat / Elk M1 Audio Zone driver that I started for use with Audio Systems 
+set up on the Elk M1 and an M1XEP.  This is a non-functioning prototype as I do not have the necessary equipment to 
+experiment with it.  If you have this set up, are technical enough to attempt to finish this driver and have the desire 
+to do so, please contact me.
