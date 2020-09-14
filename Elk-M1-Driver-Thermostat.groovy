@@ -15,14 +15,14 @@
  *
  *  A Special Thanks to Doug Beard for the framework of this driver!
  *
- *  I am not a programmer so alot of this work is through trial and error. I also spent a good amount of time looking
+ *  I am not a programmer so a lot of this work is through trial and error. I also spent a good amount of time looking
  *  at other integrations on various platforms. I know someone else was working on an Elk driver that involved an ESP
  *  setup. This is a more direct route using equipment I already owned.
  *
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.0" }
+public static String version() { return "v0.2.1" }
 
 import groovy.transform.Field
 
@@ -33,7 +33,7 @@ metadata {
 		capability "RelativeHumidityMeasurement"
 		capability "Refresh"
 		command "setThermostatHoldMode", [[name: "hold*", type: "ENUM", constraints: elkThermostatHoldIn]]
-		command "setThermostatTemperature", [[name: "temperature*", description: "1 - 99", type: "NUMBER"]]
+		command "setTemperature", [[name: "temperature*", description: "1 - 99", type: "NUMBER"]]
 		attribute "hold", "enum", [Off, On]
 	}
 	preferences {
@@ -201,7 +201,7 @@ hubitat.device.HubAction setThermostatMode(String thermostatmode) {
 	setThermostatData(elkThermostatCommands["Mode"], elkThermostatModeOut[thermostatmode])
 }
 
-hubitat.device.HubAction setThermostatTemperature(BigDecimal degrees) {
+hubitat.device.HubAction setTemperature(BigDecimal degrees) {
 	setThermostatData(elkThermostatCommands["CurrentTemp"], degrees)
 }
 
@@ -243,6 +243,9 @@ String getThermID() {
 /***********************************************************************************************************************
  *
  * Release Notes (see Known Issues Below)
+ *
+ * 0.2.1
+ * Renamed setThermostatTemperature to setTemperature to match other Hubitat drivers.
  *
  * 0.2.0
  * Added debug logging.

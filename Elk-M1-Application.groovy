@@ -17,20 +17,21 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.4" }
+public static String version() { return "v0.2.5" }
 
 import groovy.transform.Field
 
 definition(
 		name: "Elk M1 Application",
 		namespace: "belk",
-		singleInstance: true,
 		author: "Mike Magrann",
-		description: "Integrate your Elk M1 Alarm system",
-		category: "My Apps",
+		description: "Integrate an Elk M1 Security System",
+		category: "Security",
 		iconUrl: "",
 		iconX2Url: "",
 		iconX3Url: "",
+		importUrl: "https://raw.githubusercontent.com/thecaptncode/hubitat-elkm1/master/Elk-M1-Application.groovy",
+		documentationLink: "https://github.com/thecaptncode/hubitat-elkm1/wiki"
 )
 
 preferences {
@@ -940,8 +941,8 @@ void triggerCmd(deviceInfo, String cmd, String value, int integerValue) {
 		case "setThermostatMode":
 			deviceInfo.setThermostatMode(value)
 			break
-		case "setThermostatTemperature":
-			deviceInfo.setThermostatTemperature(integerValue)
+		case "setTemperature":
+			deviceInfo.setTemperature(integerValue)
 			break
 		case "disarm":
 			deviceInfo.disarm()
@@ -1212,12 +1213,12 @@ void speakRetry(data) {
 		"Switch:switch.on"                          : "on",
 		"Switch:switch.off"                         : "off",
 		"SwitchLevel:level"                         : "setLevel",
-		"TemperatureMeasurement:temperature"        : "attributeonly",
+		"TemperatureMeasurement:temperature"        : "setTemperature",
 		"Thermostat:coolingSetpoint"                : "setCoolingSetpoint",
 		"Thermostat:heatingSetpoint"                : "setHeatingSetpoint",
 		"Thermostat:supportedThermostatFanModes"    : "attributeonly",
 		"Thermostat:supportedThermostatModes"       : "attributeonly",
-		"Thermostat:temperature"                    : "setThermostatTemperature",
+		"Thermostat:temperature"                    : "setTemperature",
 		"Thermostat:thermostatFanMode"              : "setThermostatFanMode",
 		"Thermostat:thermostatMode"                 : "setThermostatMode",
 		"Thermostat:thermostatOperatingState"       : "attributeonly",
@@ -1227,6 +1228,9 @@ void speakRetry(data) {
 /***********************************************************************************************************************
  *
  * Release Notes
+ *
+ * Version: 0.2.5
+ * Renamed setThermostatTemperature to setTemperature to match other Hubitat drivers.
  *
  * Version: 0.2.4
  * Fixed a bug not properly managing integrated device subscriptions.
