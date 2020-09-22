@@ -17,7 +17,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.5" }
+public static String version() { return "v0.2.6" }
 
 import groovy.transform.Field
 
@@ -74,8 +74,8 @@ Map mainPage() {
 			section("Define your Elk M1 device") {
 				input name: "elkM1Name", type: "text", title: "Elk M1 Name", required: true, defaultValue: "Elk M1"
 				input name: "elkM1IP", type: "text", title: "Elk M1 IP Address", required: true
-				input name: "elkM1Port", type: "number", title: "Elk M1 Port", range: 1..65535, required: true, defaultValue: 2101
-				input name: "elkM1Keypad", type: "number", title: "Elk M1 Keypad", range: 1..16, required: true, defaultValue: 1
+				input name: "elkM1Port", type: "number", title: "Elk M1 Port", range: "1..65535", required: true, defaultValue: 2101
+				input name: "elkM1Keypad", type: "number", title: "Elk M1 Keypad", range: "1..16", required: true, defaultValue: 1
 				input name: "elkM1Code", type: "text", title: "Elk M1 User Code", required: true
 			}
 		} else {
@@ -1228,6 +1228,9 @@ void speakRetry(data) {
 /***********************************************************************************************************************
  *
  * Release Notes
+ *
+ * Version: 0.2.6
+ * Fixed issue with the app hanging when it is first installed.
  *
  * Version: 0.2.5
  * Renamed setThermostatTemperature to setTemperature to match other Hubitat drivers.
