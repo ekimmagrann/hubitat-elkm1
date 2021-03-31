@@ -17,7 +17,7 @@
  *** See Release Notes at the bottom***
  ***********************************************************************************************************************/
 
-public static String version() { return "v0.2.6" }
+public static String version() { return "v0.2.6.1" }
 
 import groovy.transform.Field
 
@@ -225,53 +225,64 @@ Map deviceMapsPage() {
 		createElkM1ParentDevice()
 	}
 
-	state.editedDeviceDNI = null
-	Map<List<String>> integrationMap = [:]
-	settings.findAll { it.key.startsWith("integrate:") }.each {
-		String[] integrations = it.key.split(':')
-
-		if (integrations.size() > 2) {
-			if (integrationMap[integrations[1]] == null) {
-				integrationMap[integrations[1]] = [integrations[2]]
-			} else {
-				integrationMap[integrations[1]] << integrations[2]
-			}
-		}
-	}
 	dynamicPage(name: "deviceMapsPage", title: "", install: true, uninstall: false) {
-
-		section("<h1>Device Maps</h1>") {
-			paragraph "The partition of your Elk M1 Installation may consist of Zone, Output, Task, Lighting, Thermostat, Keypad, " +
-					"Custom, Counter and Speech Devices.  You can choose to map the devices manually or use the import method. "
-			paragraph "You'll want to determine the device number as it is defined in your Elk M1 setup. " +
-					" Define a new device in Elk M1 application and the application will then create either a Virtual sensor component device or" +
-					" an Elk Child device, which will report the state of the Elk M1 device to which it is mapped. " +
-					" The devices can be used in Rule Machine or any other application that is capable of leveraging the devices capability."
-		}
-		section("<h2>Create New Devices</h2>") {
-			href(name: "createDeviceImportPage", title: "Import Elk Devices",
-					description: "Click to import Elk devices",
-					page: "defineDeviceMapImport")
-			href(name: "createDeviceMapPage", title: "Create a Device Map",
-					description: "Create a Virtual Device Manually",
-					page: "defineDeviceMap")
-			href(name: "createLightMapPage", title: "Create a Lighting Device Map",
-					description: "Create a Virtual Lighting Device Manually",
-					page: "defineLightMap")
-		}
-
 		com.hubitat.app.DeviceWrapper deviceInfo = getChildDevice(state.ElkM1DNI)
-		section("<h2>Existing Devices</h2>") {
-			paragraph "View or change the integration of existing Elk M1 devices with physical devices."
-			href(name: "editDeviceMapPage", title: "${deviceInfo.label}",
-					description: integrationOptions(integrationMap[deviceInfo.deviceNetworkId], deviceInfo),
-					params: [deviceNetworkId: deviceInfo.deviceNetworkId],
-					page: "editDeviceMapPage")
-			deviceInfo.getChildDevices().sort { it.deviceNetworkId }.each {
-				href(name: "editDeviceMapPage", title: "${it.label}",
-						description: integrationOptions(integrationMap[it.deviceNetworkId], it),
-						params: [deviceNetworkId: it.deviceNetworkId],
+		if (deviceInfo == null) {
+			section("<h1>A problem was detected</h1>") {
+				paragraph "The Elk M1 parent device was not found."
+			}
+		} else {
+			state.editedDeviceDNI = null
+			Map<List<String>> integrationMap = [:]
+			settings.findAll { it.key.startsWith("integrate:") }.each {
+				String[] integrations = it.key.split(':')
+
+				if (integrations.size() > 2) {
+					if (integrationMap[integrations[1]] == null) {
+						integrationMap[integrations[1]] = [integrations[2]]
+					} else {
+						integrationMap[integrations[1]] << integrations[2]
+					}
+				}
+			}
+
+			section("<h1>Device Maps</h1>") {
+				paragraph "The partition of your Elk M1 Installation may consist of Zone, Output, Task, Lighting, Thermostat, Keypad, " +
+						"Custom, Counter and Speech Devices.  You can choose to map the devices manually or use the import method. "
+				paragraph "You'll want to determine the device number as it is defined in your Elk M1 setup. " +
+						" Define a new device in Elk M1 application and the application will then create either a Virtual sensor component device or" +
+						" an Elk Child device, which will report the state of the Elk M1 device to which it is mapped. " +
+						" The devices can be used in Rule Machine or any other application that is capable of leveraging the devices capability."
+			}
+			section("<h2>Create New Devices</h2>") {
+				href(name: "createDeviceImportPage", title: "Import Elk Devices",
+						description: "Click to import Elk devices",
+						page: "defineDeviceMapImport")
+				href(name: "createDeviceMapPage", title: "Create a Device Map",
+						description: "Create a Virtual Device Manually",
+						page: "defineDeviceMap")
+				href(name: "createLightMapPage", title: "Create a Lighting Device Map",
+						description: "Create a Virtual Lighting Device Manually",
+						page: "defineLightMap")
+			}
+
+			section("<h2>Existing Devices</h2>") {
+				paragraph "View or change the integration of existing Elk M1 devices with physical devices."
+				href(name: "editDeviceMapPage", title: "${deviceInfo.label}",
+						description: integrationOptions(integrationMap[deviceInfo.deviceNetworkId], deviceInfo),
+						params: [deviceNetworkId: deviceInfo.deviceNetworkId],
 						page: "editDeviceMapPage")
+				List<com.hubitat.app.DeviceWrapper> children = deviceInfo.getChildDevices()
+				if (children != null && children.size() > 0) {
+					children.sort { it.deviceNetworkId }.each {
+						href(name: "editDeviceMapPage", title: "${it.label}",
+								description: integrationOptions(integrationMap[it.deviceNetworkId], it),
+								params: [deviceNetworkId: it.deviceNetworkId],
+								page: "editDeviceMapPage")
+					}
+				} else {
+					paragraph "No children devices for ${deviceInfo.label} have been created yet."
+				}
 			}
 		}
 	}
@@ -671,12 +682,12 @@ void installed() {
 }
 
 void updated() {
-	log.info app.name + "updated"
+	log.info app.name + " updated"
 	initialize()
 }
 
 void initialize() {
-	log.info app.name + "initialize"
+	log.info app.name + " initialize"
 }
 
 void uninstalled() {
